@@ -916,6 +916,13 @@
         <div id="accountStatusBadge" style="display:inline-block; padding:6px 14px; border-radius:999px; font-size:12px; font-weight:700; background:var(--card2); border:1px solid var(--border);">⚪ Checking account status…</div>
       </div>
 
+      <!-- Shown only when the server reports that account features are not
+           configured, so the user is never offered a button that cannot work. -->
+      <div id="accountServerNotice" style="display:none; background:rgba(242,145,59,0.12); border:1px solid #F2913B; border-radius:14px; padding:14px; margin-bottom:16px; text-align:left;">
+        <b style="font-size:13.5px; color:var(--text); display:block; margin-bottom:4px;">⚠️ Accounts are not enabled on this server</b>
+        <p id="accountServerNoticeText" style="font-size:12.5px; color:var(--text-dim); margin:0; line-height:1.5;">Everything offline still works. An administrator needs to configure the server before sign-up and sign-in can be used.</p>
+      </div>
+
       <!-- VIEW 1: SIGN-UP FORM WHEN NOT VERIFIED -->
       <div id="accountSignUpView" style="display:none;">
         <div class="google-account-card">
@@ -6878,8 +6885,8 @@ function generatePdfDoc(profileName){
    Anything genuinely sensitive should be reported through the integrity portal
    (encrypted client-side before upload) rather than emailed. */
 const FEEDBACK_EMAIL = "safestepske@gmail.com";
-let emailjsReady = false;      // retained as a feature flag for older callers
-function attemptInit(){ emailjsReady = false; }
+let legacyMailFlag = false;    // retained so older call sites do not throw
+function attemptInit(){ legacyMailFlag = false; }
 attemptInit(0);
 
 async function sendAutoEmail(subject, message, replyTo){
@@ -9095,6 +9102,10 @@ function checkRateLimit(){ return true; }
 async function sendSmsVerificationCodeViaAfricasTalking(){ /* server-side only */ }
 
 async function submitAccountForm(isOnboarding){
+  if(serverCapabilities && serverCapabilities.auth === false){
+    showToast("Accounts are not enabled on this server yet. Ask the administrator to configure it.");
+    return;
+  }
   const nameInput  = isOnboarding ? document.getElementById("onbFullName") : document.getElementById("accFullName");
   const emailInput = isOnboarding ? document.getElementById("onbEmail") : document.getElementById("accEmail");
   const phoneInput = isOnboarding ? document.getElementById("onbPhone") : document.getElementById("accPhone");
@@ -9204,6 +9215,10 @@ function resendAccountCode(isOnboarding){
 
 /* ---------------- SIGN-IN ---------------- */
 async function signInToSafeStepsAccount(){
+  if(serverCapabilities && serverCapabilities.auth === false){
+    showToast("Accounts are not enabled on this server yet. Ask the administrator to configure it.");
+    return;
+  }
   const emailEl = document.getElementById("signInEmail");
   const passEl  = document.getElementById("signInPassword");
   const email   = SS.input.email(emailEl ? emailEl.value : "");
@@ -9889,6 +9904,9 @@ function renderAccountPage(){
   const isPending = pendingVerificationCode && pendingAccountData;
   const signInView = document.getElementById("accountSignInView");
   if(signInView) signInView.style.display = (isVerified || isPending) ? "none" : "block";
+  // If the server has no account capability, replace the forms with an
+  // explanation rather than a permanently failing button.
+  renderServerCapabilityNotice();
 
   if(isVerified){
     if(badge){
@@ -9973,10 +9991,94 @@ function showCloudSyncActive(){
 function toggleAccountAutoSync(){}
 function toggleAutoBackup(){}
 async function autoBackupIfEnabled(){}
-async function backupToCloud(){}
-async function restoreFromCloud(){}
-async function contributeAnonymousHazardStat(hazardType){}
-async function loadCommunityInsights(){}
+/* ---------------- ENCRYPTED BACKUP / RESTORE ----------------
+   The old build had a Firebase-shaped stub that silently did nothing, so the
+   "Back up to cloud" button lied. It now round-trips through the server as
+   *ciphertext*: the payload is sealed with a key derived from the account
+   password, so the server stores a blob it cannot read. */
+
+async function backupToCloud(){
+  const password = prompt("Confirm your SafeSteps password to encrypt this backup.\n\nThe backup is encrypted on this device — the server only stores ciphertext and cannot read it.");
+  if(!password) return;
+  if(!SS.crypto.available()){
+    showToast("⚠️ This browser cannot encrypt a backup (Web Crypto unavailable). Your data stays on this device.");
+    return;
+  }
+  try{
+    await SS.vault.save(password, {
+      version: 3,
+      savedAt: new Date().toISOString(),
+      badges: state.badges || [],
+      streak: state.streak || null,
+      lessonsRead: state.lessonsRead || {},
+      quizScores: state.quizScores || {},
+      familyProfiles: state.familyProfiles || [],
+      nearMiss: state.nearMiss || [],
+      reports: state.reports || [],
+      trustedContact: state.trustedContact || {},
+      medical: state.medical || {}
+    });
+    state.lastCloudBackup = Date.now();
+    persist();
+    showToast("🔐 Encrypted backup stored. Only your password can open it.");
+  }catch(err){
+    showToast("⚠️ " + (err && err.message ? err.message : "Backup failed. Try again when you're online."));
+  }
+}
+
+async function restoreFromCloud(){
+  const password = prompt("Enter the SafeSteps password you used when creating the backup.");
+  if(!password) return;
+  try{
+    // The vault blob is fetched through the authenticated API (RLS-scoped to
+    // this user), then decrypted locally with the password-derived key.
+    const record = await SS.api("/api/vault");
+    if(!record || !record.vault){
+      showToast("No encrypted backup found for this account yet.");
+      return;
+    }
+    const data = await SS.vault.unseal(password, record.vault);
+    if(!confirm("Replace the data on this device with the backup from " + (data.savedAt || "an earlier date") + "?")) return;
+
+    state.badges = data.badges || state.badges;
+    state.streak = data.streak || state.streak;
+    state.lessonsRead = data.lessonsRead || state.lessonsRead;
+    state.quizScores = data.quizScores || state.quizScores;
+    if(Array.isArray(data.familyProfiles) && data.familyProfiles.length) state.familyProfiles = data.familyProfiles;
+    state.nearMiss = data.nearMiss || state.nearMiss;
+    state.trustedContact = data.trustedContact || state.trustedContact;
+    state.medical = data.medical || state.medical;
+    persist();
+    if(typeof renderProfileDependentUI === "function") renderProfileDependentUI();
+    showToast("✅ Encrypted backup restored on this device.");
+  }catch(err){
+    showToast("⚠️ Could not open that backup — check the password and try again.");
+  }
+}
+
+/* Anonymous, aggregate-only hazard counting. No identifier, no coordinates:
+   just an increment so the community panel has a real number to show. */
+async function contributeAnonymousHazardStat(hazardType){
+  if(!SS.isOnline()) return;
+  try{
+    await SS.api("/api/community/hazard", { method: "POST", body: { category: hazardType } });
+  }catch(e){ /* non-critical */ }
+}
+
+async function loadCommunityInsights(){
+  try{
+    const data = await SS.api("/api/community/insights");
+    if(data && Array.isArray(data.counts)){
+      const list = document.getElementById("communityInsightsList");
+      if(list){
+        list.innerHTML = data.counts.slice(0, 6).map(row =>
+          `<div class="hazard-zone-item">${escapeHtml(row.category)}: <b>${Number(row.count)||0}</b> reports this month</div>`
+        ).join("") || '<div class="hazard-zone-item">No community reports yet this month.</div>';
+      }
+    }
+  }catch(e){ /* offline: bundled data stays authoritative */ }
+}
+
 function disconnectFirebase(){
   firebaseUser = null;
   state.cloudUid = null;
@@ -9991,6 +10093,36 @@ async function initCloudSyncIfConfigured(){}
    it simply asks the server "who am I?". If the access cookie has expired the
    server rotates it from the refresh cookie; if both are gone the user is
    treated as a guest and all offline features keep working. */
+// Server-backed feature availability (filled in by restoreServerSession()).
+let serverCapabilities = null;
+
+async function refreshServerCapabilities(){
+  try{
+    serverCapabilities = await SS.session.capabilities();
+  }catch(e){
+    serverCapabilities = null;
+  }
+  renderServerCapabilityNotice();
+  return serverCapabilities;
+}
+
+function renderServerCapabilityNotice(){
+  const notice = document.getElementById("accountServerNotice");
+  const text = document.getElementById("accountServerNoticeText");
+  const signUpView = document.getElementById("accountSignUpView");
+  const signInView = document.getElementById("accountSignInView");
+  if(!notice) return;
+
+  const accountsDisabled = serverCapabilities && serverCapabilities.auth === false;
+  notice.style.display = accountsDisabled ? "block" : "none";
+  if(accountsDisabled){
+    if(text) text.textContent = "Everything offline still works. This deployment has not been given Supabase credentials, so sign-up and sign-in cannot run yet.";
+    if(signUpView) signUpView.style.display = "none";
+    if(signInView) signInView.style.display = "none";
+  }
+  return accountsDisabled;
+}
+
 async function restoreServerSession(){
   try{
     const me = await SS.session.me();
@@ -10010,6 +10142,7 @@ async function restoreServerSession(){
   }catch(err){
     console.warn("Session restore skipped:", err && err.message);
   }finally{
+    await refreshServerCapabilities();
     updateHeaderAccountBadge();
     if(typeof renderAccountPage === "function"){ try{ renderAccountPage(); }catch(e){} }
   }

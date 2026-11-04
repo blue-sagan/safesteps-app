@@ -101,16 +101,21 @@ async function requestListener(req, res) {
 
   if (enforceHttps(req, res, url)) return;
 
-  if (req.method === 'HEAD') {
-    // Cheap liveness answer for HEAD probes.
-    res.writeHead(200, securityHeaders(''));
-    res.end();
-    return;
-  }
-
   if (url.pathname === '/healthz') {
+    // Liveness + which optional capabilities are configured. No secrets: only
+    // booleans and a warning count, so this is safe on a public probe.
+    const capabilities = config.capabilities();
+    const degraded = Object.values(capabilities).some((value) => !value);
     res.writeHead(200, { 'Content-Type': 'application/json', ...securityHeaders('', { isApi: true }) });
-    res.end(JSON.stringify({ status: 'ok', uptime: Math.round(process.uptime()) }));
+    res.end(
+      JSON.stringify({
+        status: 'ok', // the process is serving; `degraded` flags missing config
+        degraded,
+        uptime: Math.round(process.uptime()),
+        capabilities,
+        configWarnings: (config.warnings || []).length,
+      })
+    );
     return;
   }
 

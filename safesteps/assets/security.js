@@ -388,6 +388,19 @@
       if (!SS._config) SS._config = await api('/api/config');
       return SS._config;
     },
+    /**
+     * Which server-backed features this deployment actually has. The UI uses
+     * this to disable what cannot work and say why, instead of showing a button
+     * that always fails. Offline features never depend on it.
+     */
+    async capabilities() {
+      try {
+        const cfg = await SS.session.config();
+        return cfg.capabilities || { auth: true, emailVerification: true, atRestEncryption: true };
+      } catch {
+        return { auth: false, emailVerification: false, atRestEncryption: false, offline: true };
+      }
+    },
     async me() {
       try {
         return await api('/api/auth/me');

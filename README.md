@@ -30,6 +30,12 @@ cp .env.example .env          # then fill in SUPABASE_PUBLISHABLE_KEY and pepper
 npm start                     # http://localhost:8080
 ```
 
+or, with no `.env` at all, `./start.sh` — it generates throwaway secrets so the
+app boots instead of crash-looping. **Nothing is required to run it**: the PWA,
+the lessons, the maps and the local vault are fully offline. Missing credentials
+only disable the features that need them, and the app says so explicitly rather
+than failing at submit time (see `GET /api/config` → `capabilities`).
+
 There are no runtime dependencies to install — the server is Node built-ins only.
 Set `NODE_ENV=production` for HSTS, `Secure`/`__Host-` cookies and HTTPS
 enforcement. `PUBLIC_ORIGIN` is required in production.
@@ -53,12 +59,45 @@ rather than pretending otherwise. See SECURITY.md → "Enabling email sign-in".
 ## Tests and audit
 
 ```bash
-cd safesteps/server && npm test     # 30 behavioural security tests
-./scripts/security-audit.sh         # secrets in tree+history, deps, headers, tests
+cd safesteps/server && npm test                  # 41 behavioural security tests
+./scripts/security-audit.sh                      # secrets in tree+history, deps, headers, tests
+./scripts/verify-deployment.sh http://localhost:8080   # 36 checks against a *running* server
 ```
 
 The audit exits non-zero on failure and runs in CI
 (`.github/workflows/security.yml`) on every push, every PR, and weekly.
+`verify-deployment.sh` is the same gate for a deployed origin: point it at the
+public URL and it checks headers, CSP nonces, cookie flags, exposure, traversal
+and auth on the live server, not on the source.
+
+## Deploying
+
+The server is a single static+API process with zero dependencies, so it runs
+anywhere Node 20+ does. Three ready-made paths:
+
+| Path | How |
+| --- | --- |
+| **Render** (easiest) | New Blueprint → this repo. `render.yaml` sets `rootDir: safesteps/server`, the health check and the env-var list. |
+| **Docker** | `docker build -f safesteps/server/Dockerfile -t safesteps . && docker run -p 8080:8080 --env-file safesteps/server/.env safesteps` |
+| **Any PaaS with a Procfile** | `web: node server.js` (from `safesteps/server/Procfile`). Mount the repo root so the static files resolve. |
+
+Set these in the host's dashboard — never in Git:
+
+| Variable | Notes |
+| --- | --- |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | required for accounts |
+| `SUPABASE_SERVICE_ROLE_KEY` | required for email verification; server only |
+| `VERIFICATION_PEPPER` | `openssl rand -hex 32` |
+| `SERVER_DATA_KEY` | `openssl rand -base64 32` — **keep it stable**, losing it makes existing vault data unreadable |
+| `PUBLIC_ORIGIN` | the exact public origin, e.g. `https://safesteps.example` |
+| `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM` | optional; falls back to Supabase's mailer, then to an encrypted spool |
+| `NODE_ENV=production` | turns on HSTS, `Secure`/`__Host-` cookies and HTTPS enforcement |
+
+Then prove it: `./scripts/verify-deployment.sh https://your-origin.example`.
+
+Until the credentials are set the deployment is *degraded, not broken*:
+`/healthz` returns `{"status":"ok","degraded":true,"capabilities":{...}}` and the
+sign-in forms show a notice instead of pretending to work.
 
 ## Security
 

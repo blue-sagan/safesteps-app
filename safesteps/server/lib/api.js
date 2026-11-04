@@ -109,6 +109,26 @@ async function guardSensitive(req, policy) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Capability guards                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Fail with an explanation, not a stack trace. When a deployment is missing a
+ * credential the operator needs to know *which* one and what to do about it.
+ */
+function requireCapability(name, hint) {
+  if (config.capabilities()[name]) return;
+  const err = new Error(`This feature is not available on this server yet. ${hint}`);
+  err.status = 503;
+  err.code = 'feature_unavailable';
+  err.expose = true; // operator-facing: the message names the missing setting
+  throw err;
+}
+
+const AUTH_HINT = 'An administrator must set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY on the server.';
+const VERIFY_HINT = 'An administrator must set SUPABASE_SERVICE_ROLE_KEY on the server.';
+
+/* ------------------------------------------------------------------ */
 /* Handlers                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -119,6 +139,9 @@ async function handleConfig(req, res) {
     supabasePublishableKey: config.supabase.publishableKey,
     passwordMinLength: 10,
     hsts: config.isProduction,
+    // Public-safe capability flags so the UI can disable what cannot work
+    // instead of letting the user hit an error they cannot fix.
+    capabilities: config.capabilities(),
   });
 }
 
@@ -129,6 +152,7 @@ async function handleChallenge(req, res) {
 }
 
 async function handleRegister(req, res) {
+  requireCapability('auth', AUTH_HINT);
   const body = await guardSensitive(req, 'register');
   v.only(body, ['fullName', 'email', 'password', 'phone', 'website', 'botChallenge', 'botNonce']);
 
@@ -168,6 +192,7 @@ async function handleRegister(req, res) {
 }
 
 async function handleVerify(req, res) {
+  requireCapability('emailVerification', VERIFY_HINT);
   const body = await guardSensitive(req, 'verify');
   v.only(body, ['email', 'code', 'website', 'botChallenge', 'botNonce']);
 
@@ -212,6 +237,7 @@ async function handleVerify(req, res) {
     );
     err.status = 503;
     err.code = 'verify_unavailable';
+    err.expose = true;
     throw err;
   }
   try {
@@ -231,6 +257,7 @@ async function handleVerify(req, res) {
 }
 
 async function handleLogin(req, res) {
+  requireCapability('auth', AUTH_HINT);
   const body = await guardSensitive(req, 'login');
   v.only(body, ['email', 'password', 'website', 'botChallenge', 'botNonce']);
 
@@ -463,6 +490,7 @@ async function handleQuizAttempt(req, res) {
 }
 
 async function handleVaultPut(req, res) {
+  requireCapability('atRestEncryption', 'An administrator must set SERVER_DATA_KEY on the server.');
   const user = await requireUser(req);
   requireConfirmed(user);
 
@@ -488,6 +516,77 @@ async function handleVaultPut(req, res) {
   });
   if (!result.ok) throw Object.assign(new Error('Could not save your encrypted vault.'), { status: 502 });
   sendJson(res, 200, { ok: true, bytes: record.ciphertext.length });
+}
+
+async function handleVaultGet(req, res) {
+  const user = await requireUser(req);
+  requireConfirmed(user);
+
+  const result = await db.rest('user_vaults', {
+    accessToken: user.accessToken,
+    // Named columns only; `user_id` is never returned (the caller knows who they are).
+    searchParams: {
+      select: 'kdf_salt,kdf_iterations,wrapped_key,wrapped_key_iv,ciphertext,iv,version,updated_at',
+      limit: '1',
+    },
+  });
+  if (!result.ok) throw Object.assign(new Error('Could not load your vault.'), { status: 502 });
+
+  const row = Array.isArray(result.body) ? result.body[0] : null;
+  sendJson(res, 200, {
+    vault: row
+      ? {
+          kdfSalt: row.kdf_salt,
+          kdfIterations: row.kdf_iterations,
+          wrappedKey: row.wrapped_key,
+          wrappedKeyIv: row.wrapped_key_iv,
+          ciphertext: row.ciphertext,
+          iv: row.iv,
+          version: row.version,
+          updatedAt: row.updated_at,
+        }
+      : null,
+  });
+}
+
+/**
+ * Anonymous hazard tallies. Deliberately aggregate-only: no user id, no
+ * coordinates, no free text — so contributing cannot de-anonymise a reporter.
+ */
+const HAZARD_CATEGORIES = ['crash', 'near_miss', 'pothole', 'roadblock', 'flooding', 'signage', 'other'];
+
+async function handleCommunityHazard(req, res) {
+  await rateLimit.enforce('api', clientIpHash(req));
+  const body = await readJson(req);
+  v.only(body, ['category']);
+  const category = v.cleanEnum(body.category, HAZARD_CATEGORIES, 'category');
+
+  if (!config.capabilities().auth) {
+    // Still accept and count locally so the feature works before the DB is set up.
+    db.query(
+      'INSERT INTO community_counts (category, counted_at) VALUES (?, ?)',
+      [category, Date.now()]
+    );
+    return sendJson(res, 202, { status: 'counted' });
+  }
+
+  const result = await db.rest('rpc/api_increment_hazard', { method: 'POST', body: { p_category: category } });
+  if (!result.ok) throw Object.assign(new Error('Could not record that.'), { status: 502 });
+  sendJson(res, 202, { status: 'counted' });
+}
+
+async function handleCommunityInsights(req, res) {
+  await rateLimit.enforce('api', clientIpHash(req));
+  if (!config.capabilities().auth) {
+    const rows = db.query(
+      "SELECT category, COUNT(*) AS count FROM community_counts WHERE counted_at > ? GROUP BY category ORDER BY count DESC",
+      [Date.now() - 30 * 24 * 3600 * 1000]
+    );
+    return sendJson(res, 200, { counts: rows, window: '30d' });
+  }
+  const result = await db.rest('rpc/api_hazard_counts', { method: 'POST', body: {} });
+  if (!result.ok) throw Object.assign(new Error('Could not load insights.'), { status: 502 });
+  sendJson(res, 200, { counts: Array.isArray(result.body) ? result.body : [], window: '30d' });
 }
 
 /* ----------------------------- uploads ---------------------------- */
@@ -703,6 +802,10 @@ async function handle(req, res, url) {
     'GET /api/reports': handleListReports,
     'POST /api/quiz-attempts': handleQuizAttempt,
     'POST /api/vault': handleVaultPut,
+    'GET /api/vault': handleVaultGet,
+    'POST /api/community/hazard': handleCommunityHazard,
+    'POST /api/community/insights': handleCommunityInsights,
+    'GET /api/community/insights': handleCommunityInsights,
     'POST /api/integrity': handleCreateIntegrityReport,
     'POST /api/feedback': handleFeedback,
     'POST /api/integrity/dispatch': handleIntegrityDispatch,

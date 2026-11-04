@@ -22,6 +22,12 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 process.env.VERIFICATION_PEPPER = 'test-pepper-do-not-use-in-production';
 process.env.PUBLIC_ORIGIN = 'http://127.0.0.1:8123';
 process.env.SQLITE_PATH = ':memory:';
+// Force the *unconfigured* shape regardless of any local .env: this suite
+// asserts the degraded behaviour (and must be reproducible on any machine).
+process.env.SERVER_DATA_KEY = '';
+process.env.SMTP_HOST = '';
+process.env.SMTP_USER = '';
+process.env.SMTP_PASS = '';
 
 const { createServer } = require('../server');
 const config = require('../lib/config');
@@ -94,11 +100,14 @@ test('/api/config exposes only public values', async () => {
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(Object.keys(body).sort(), [
+    'capabilities',
     'hsts',
     'passwordMinLength',
     'supabasePublishableKey',
     'supabaseUrl',
   ]);
+  // Capability flags are booleans only — no credential material.
+  for (const value of Object.values(body.capabilities)) assert.equal(typeof value, 'boolean');
   // A service-role key must never be reachable here.
   assert.equal(/eyJhbGciOi/.test(JSON.stringify(body)), false);
   assert.equal(body.supabaseServiceRoleKey, undefined);
@@ -246,12 +255,50 @@ test('anonymous callers cannot reach account endpoints', async () => {
     const response = await fetch(`${base}${route}`, { headers: browserHeaders() });
     assert.equal(response.status, 401, `${route} should require a session`);
   }
+  // /api/vault reports the missing SERVER_DATA_KEY (503) before auth in this
+  // unconfigured test run; with a key configured it must be 401. Both are
+  // "refused", which is the property under test.
   const vault = await fetch(`${base}/api/vault`, {
     method: 'POST',
     headers: browserHeaders({ 'content-type': 'application/json' }),
     body: JSON.stringify({}),
   });
-  assert.equal(vault.status, 401, '/api/vault should require a session');
+  assert.ok([401, 503].includes(vault.status), `/api/vault should refuse anonymous callers, got ${vault.status}`);
+});
+
+test('missing configuration degrades with an actionable 503, not a crash', async () => {
+  // This run has no SUPABASE_* credentials, so auth endpoints must explain
+  // themselves rather than throwing an opaque 500.
+  const health = await (await fetch(`${base}/healthz`)).json();
+  assert.equal(health.status, 'ok');
+
+  // Degraded because no service-role key / data key — auth itself is configured
+  // in this test run, so capabilities must reflect each piece separately.
+  assert.equal(health.degraded, true);
+  assert.equal(health.capabilities.emailVerification, false);
+  assert.equal(health.capabilities.atRestEncryption, false);
+
+  const response = await fetch(`${base}/api/auth/verify`, {
+    method: 'POST',
+    headers: browserHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ email: 'a@b.co', code: '12345678' }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  // Either the bot check or the capability guard may answer first; both must be
+  // an explicit, non-500 refusal that names the missing setting when relevant.
+  assert.ok(['feature_unavailable', 'bot_check_failed'].includes(body.error), body.error);
+  if (body.error === 'feature_unavailable') {
+    assert.match(body.message, /SUPABASE_SERVICE_ROLE_KEY/);
+  }
+  // The operator-facing name is included, but never a secret value.
+  assert.equal(/eyJ|sb_secret|sb_publishable_test_key/.test(JSON.stringify(body)), false);
+});
+
+test('/healthz leaks no secrets', async () => {
+  const text = await (await fetch(`${base}/healthz`)).text();
+  assert.equal(/eyJ|sb_secret|service_role|test-pepper/i.test(text), false);
+  assert.equal(/SUPABASE_|SMTP_|SERVER_DATA_KEY/.test(text), false);
 });
 
 test('state-changing API calls require a same-origin request', async () => {

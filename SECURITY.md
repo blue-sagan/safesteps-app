@@ -293,6 +293,45 @@ be blocked. Nonces are never reused across responses.
   weekly on a schedule, and can curl a deployed origin to assert the live headers.
 - Client libraries are pinned to exact versions via the CDNs already in use.
 
+### D5. Deployment: one command to prove a live origin
+
+Shipping the code is not the same as shipping the controls. `render.yaml`,
+`safesteps/server/Dockerfile` and `safesteps/server/Procfile` deploy the same
+server anywhere; `scripts/verify-deployment.sh` then proves the deployed origin
+still enforces everything in this document.
+
+```bash
+./scripts/verify-deployment.sh https://your-origin.example   # 36 checks, exit 1 on any failure
+```
+
+| Section | What it asserts against the *live* origin |
+| --- | --- |
+| 1. Health | `/healthz` answers, reports `capabilities` as booleans, and leaks no credential-shaped string |
+| 2. Transport | plain-HTTP → HTTPS redirect; HSTS present in production (gated by `HTTPS_MODE`) |
+| 3. Headers | CSP, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP/CORP |
+| 4. Nonces | a fresh CSP nonce per response, and every `<script>` tag carries it |
+| 5. Cookies | `__Host-` prefix, `HttpOnly`, `Secure`, `SameSite` on the session cookie |
+| 6. Exposure | no tokens in `localStorage`; `/server/*`, `/.env`, `/.git/*` are 404; path traversal returns no file content; cross-origin `POST` is 403; `/api/config` carries no secrets; `/api/auth/me` and `/api/reports` are 401; API responses are `no-store` |
+
+### D6. Degraded configuration is honest, not silent
+
+A missing credential must not crash-loop the server and must not produce a
+misleading success. `lib/config.js` therefore collects warnings instead of
+throwing, and every gated feature reports itself:
+
+- `GET /api/config` and `GET /healthz` return a **boolean-only** capability map —
+  `{auth, emailVerification, mailTransport, atRestEncryption}` — plus `degraded`
+  and a warning *count* (never the values).
+- Calling a feature whose capability is `false` returns
+  `503 feature_unavailable` naming the exact setting to add, e.g.
+  `{"error":"feature_unavailable","message":"Email sign-in is not configured on this server. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY."}`.
+- The PWA reads that map at boot (`SS.session.capabilities()`): when `auth` is
+  false the sign-in/sign-up forms are replaced with an explicit notice instead of
+  failing on submit. Offline lessons, quizzes, maps and the local vault continue
+  to work with **zero** configuration.
+- `/healthz` stays `200` while degraded so a load balancer does not flap, but the
+  `degraded: true` flag is what alerting should key on.
+
 ---
 
 ## How the database was verified
@@ -393,4 +432,14 @@ That test caught three real defects, now fixed:
   sense that they are ciphertext — but the *metadata* (who reported what, when,
   which county) is not encrypted, so treat dumps as sensitive.
 - Keep the audit in the deploy gate: `./scripts/security-audit.sh` exits non-zero
-  on any regression.
+  on any regression, and `./scripts/verify-deployment.sh <origin>` exits non-zero
+  if a deployed origin loses a header, a cookie flag or an auth check.
+- **Deployment checklist** (dashboards only; the code is already done):
+  set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `VERIFICATION_PEPPER` (`openssl rand -hex 32`), `SERVER_DATA_KEY`
+  (`openssl rand -base64 32`, **keep it stable** — rotating it makes queued mail
+  and existing vault blobs unreadable), `PUBLIC_ORIGIN`, and the `SMTP_*` values.
+  Then run `scripts/verify-deployment.sh` against the deployed URL before
+  announcing it.
+- `SERVER_DATA_KEY` is the one secret where loss means data loss rather than a
+  re-login; store it in a password manager, not only in the host dashboard.

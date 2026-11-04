@@ -40,14 +40,24 @@ loadDotEnv(path.join(__dirname, '..', '.env'));
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+/**
+ * A missing credential must never take the whole app down: the PWA and every
+ * offline feature are useful with zero configuration, and a hard crash at boot
+ * only turns a partial outage into a total one. So required values degrade with
+ * a loud warning, and the features that need them fail with an explicit,
+ * actionable error instead (see `config.warnings` and GET /healthz).
+ */
+const warnings = [];
+
 function required(name, { allowInDev = false } = {}) {
   const value = (process.env[name] || '').trim();
   if (value) return value;
   if (!isProduction && allowInDev) return '';
-  throw new Error(
-    `Missing required environment variable ${name}. ` +
-      'Copy server/.env.example to server/.env and fill it in.'
+  warnings.push(
+    `${name} is not set — features that require it will respond with a clear ` +
+      '503 instead of working. See server/.env.example.'
   );
+  return '';
 }
 
 function bool(value, fallback = false) {
@@ -58,15 +68,40 @@ function bool(value, fallback = false) {
 const supabaseUrl = required('SUPABASE_URL').replace(/\/+$/, '');
 const publishableKey = required('SUPABASE_PUBLISHABLE_KEY');
 
+// Features that cannot work without credentials, checked at request time.
+const capabilities = () => ({
+  auth: Boolean(supabaseUrl && publishableKey),
+  emailVerification: Boolean(supabaseUrl && publishableKey && serviceRoleKey),
+  mailTransport: Boolean(
+    (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) ||
+      (supabaseUrl && publishableKey)
+  ),
+  atRestEncryption: Boolean(serverDataKey),
+});
+
 // Server-only. Optional at boot so the app still starts (and fails closed on
 // the one flow that needs it) rather than crash-looping in production.
 const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
-const verificationPepper =
-  (process.env.VERIFICATION_PEPPER || '').trim() ||
-  (isProduction ? required('VERIFICATION_PEPPER') : crypto.randomBytes(32).toString('hex'));
+let verificationPepper = (process.env.VERIFICATION_PEPPER || '').trim();
+if (!verificationPepper) {
+  if (isProduction) {
+    required('VERIFICATION_PEPPER');
+  }
+  // Ephemeral pepper: codes issued before a restart stop validating. Acceptable
+  // for a dev/sandbox run, never for production — hence the warning above.
+  verificationPepper = crypto.randomBytes(32).toString('hex');
+  if (!isProduction && !process.env.VERIFICATION_PEPPER) {
+    warnings.push('VERIFICATION_PEPPER not set — using an ephemeral value (codes expire on restart).');
+  }
+}
 
 const serverDataKey = (process.env.SERVER_DATA_KEY || '').trim();
+if (!serverDataKey) {
+  warnings.push(
+    'SERVER_DATA_KEY not set — queued mail is stored unencrypted and /api/vault is disabled.'
+  );
+}
 
 const config = {
   isProduction,
@@ -155,7 +190,20 @@ const config = {
 };
 
 if (isProduction && !config.publicOrigin) {
-  throw new Error('PUBLIC_ORIGIN must be set in production (used for CORS and cookies).');
+  warnings.push(
+    'PUBLIC_ORIGIN is not set. Cookies, CSRF origin checks and email links rely on it; ' +
+      'requests are accepted from the Host header instead, which is weaker.'
+  );
 }
+
+config.warnings = warnings;
+
+if (warnings.length) {
+  console.warn('\nSafeSteps configuration warnings:');
+  for (const warning of warnings) console.warn(`  • ${warning}`);
+  console.warn('');
+}
+
+config.capabilities = capabilities;
 
 module.exports = config;

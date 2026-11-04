@@ -68,6 +68,11 @@ function getDb() {
       created_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS community_counts (
+      category   TEXT NOT NULL,
+      counted_at INTEGER NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS security_audit (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       event      TEXT NOT NULL,

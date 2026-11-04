@@ -101,17 +101,23 @@ function sendFile(res, filePath, req, { status = 200 } = {}) {
     'Cache-Control': isHtml ? 'no-store' : 'public, max-age=604800',
   };
 
+  const isHead = req && req.method === 'HEAD';
+
   if (isHtml) {
     const html = injectNonce(fs.readFileSync(filePath, 'utf8'), nonce);
     const body = Buffer.from(html, 'utf8');
     headers['Content-Length'] = body.length;
     res.writeHead(status, headers);
-    res.end(body);
+    res.end(isHead ? undefined : body);
     return;
   }
 
   headers['Content-Length'] = stats.size;
   res.writeHead(status, headers);
+  if (isHead) {
+    res.end();
+    return;
+  }
   fs.createReadStream(filePath).pipe(res);
 }
 

@@ -171,8 +171,13 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 process.env.VERIFICATION_PEPPER = 'test-pepper';
 process.env.PUBLIC_ORIGIN = 'http://127.0.0.1:8131';
 process.env.SQLITE_PATH = ':memory:';
-// Deliberately NO SMTP_* and NO SERVER_DATA_KEY: this exercises the hardest
-// deployment shape (no local mail transport, code readable from the queue).
+process.env.SMTP_HOST = '';
+process.env.SMTP_USER = '';
+process.env.SMTP_PASS = '';
+if (!process.env.SERVER_DATA_KEY) process.env.SERVER_DATA_KEY = require('node:crypto').randomBytes(32).toString('base64');
+// Deliberately NO SMTP_* : this exercises the hardest deployment shape (no
+// local mail transport, so the provider fallback and the encrypted spool are
+// both exercised). A data key IS set, so spool encryption is active too.
 
 const { createServer } = require('../server');
 const config = require('../lib/config');

@@ -133,14 +133,36 @@ function sendJson(res, status, payload, headers = {}) {
  * `status < 500` errors surface to clients; everything else becomes a generic
  * 500 so stack traces, SQL text and upstream URLs never reach the browser.
  */
+/**
+ * Errors we author explicitly (`expose: true`) may carry their own message and
+ * status up to 503 — an operator needs to see "SUPABASE_SERVICE_ROLE_KEY is not
+ * set", not "Something went wrong". Anything else at 5xx is replaced wholesale
+ * so stack traces, SQL text and upstream URLs never reach the browser.
+ */
 function sendError(res, error, headers = {}) {
   const status = Number(error && error.status) || 500;
+  const isAuthored = Boolean(error && error.expose);
+  const clientStatus = isAuthored ? status : status >= 500 ? 500 : status;
+
   if (status >= 500) {
     console.error('[error]', error && error.message ? error.message : error);
-    sendJson(res, 500, { error: 'server_error', message: 'Something went wrong. Please try again.' }, headers);
+  }
+
+  if (!isAuthored) {
+    const payload = {
+      error: (error && error.code) || (clientStatus >= 500 ? 'server_error' : 'invalid_request'),
+      message:
+        clientStatus >= 500
+          ? 'Something went wrong. Please try again.'
+          : (error && error.message) || 'Invalid request.',
+    };
+    if (error && error.fields) payload.fields = error.fields;
+    if (error && error.retryAfter) headers['Retry-After'] = String(error.retryAfter);
+    sendJson(res, clientStatus, payload, headers);
     return;
   }
-  const payload = { error: error.code || 'invalid_request', message: error.message || 'Invalid request.' };
+
+  const payload = { error: error.code || 'error', message: error.message };
   if (error.fields) payload.fields = error.fields;
   if (error.retryAfter) headers['Retry-After'] = String(error.retryAfter);
   sendJson(res, status, payload, headers);

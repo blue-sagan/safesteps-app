@@ -100,21 +100,47 @@ function appendCookies(res, cookies) {
  *  - Additionally require Origin/Referer to match this origin, and a
  *    double-submit token (cookie value === header value).
  */
+function allowedOrigins(req) {
+  const allowed = new Set();
+  if (config.publicOrigin) allowed.add(config.publicOrigin);
+  // The host this request actually arrived on (previews, custom domains).
+  if (req.headers.host) {
+    allowed.add(`http://${req.headers.host}`);
+    allowed.add(`https://${req.headers.host}`);
+  }
+  return allowed;
+}
+
+/**
+ * Same-origin check for state-changing requests.
+ *
+ * Note the ordering: an attacker's page can set `Origin: https://evil.example`,
+ * but it cannot make that string equal the host the request was *delivered* to.
+ * So comparing against the live request Host is the load-bearing check, and
+ * PUBLIC_ORIGIN is an additional allow-list entry for proxied deployments.
+ */
 function assertSameOrigin(req) {
   const origin = req.headers.origin;
   const referer = req.headers.referer;
-  const expected = config.publicOrigin || `http://${req.headers.host}`;
-  const candidate = origin || (referer ? new URL(referer).origin : '');
+  const candidate = origin || (referer ? safeOrigin(referer) : '');
   if (!candidate) {
     // Some same-origin form posts omit both on very old browsers; the
     // double-submit token still protects us, so only log.
     return;
   }
-  if (candidate !== expected && candidate !== `http://${req.headers.host}` && candidate !== `https://${req.headers.host}`) {
+  if (!allowedOrigins(req).has(candidate)) {
     const err = new Error('Cross-origin request blocked.');
     err.status = 403;
     err.code = 'csrf_origin_mismatch';
     throw err;
+  }
+}
+
+function safeOrigin(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
   }
 }
 

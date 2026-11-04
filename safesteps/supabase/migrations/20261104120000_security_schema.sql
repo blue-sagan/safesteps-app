@@ -783,3 +783,47 @@ as $$ select id from auth.users where lower(email) = lower(p_email) limit 1 $$;
 
 revoke all on function public.api_user_id_by_email(text) from public, anon, authenticated;
 grant execute on function public.api_user_id_by_email(text) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 17. Anonymous community hazard counters (aggregate-only)
+-- ---------------------------------------------------------------------------
+-- Deliberately carries no user id, no coordinates and no free text, so a
+-- contribution cannot be linked back to the person who made it. The table has
+-- RLS on with NO policies and no grants: it is reachable only through the two
+-- SECURITY DEFINER functions below, which expose a count — never rows.
+create table if not exists public.hazard_counts (
+  id          bigint generated always as identity primary key,
+  category    text not null check (category in ('crash','near_miss','pothole','roadblock','flooding','signage','other')),
+  counted_at  timestamptz not null default now(),
+  counted_day date not null default current_date
+);
+create index if not exists hazard_counts_day_idx on public.hazard_counts (counted_day, category);
+alter table public.hazard_counts enable row level security;
+revoke all on public.hazard_counts from anon, authenticated;
+
+create or replace function public.api_increment_hazard(p_category text)
+returns void
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+begin
+  if p_category not in ('crash','near_miss','pothole','roadblock','flooding','signage','other') then
+    raise exception 'invalid category';
+  end if;
+  insert into public.hazard_counts (category) values (p_category);
+end $$;
+revoke all on function public.api_increment_hazard(text) from public;
+grant execute on function public.api_increment_hazard(text) to anon, authenticated;
+
+create or replace function public.api_hazard_counts()
+returns table (category text, count bigint)
+language sql security definer set search_path = public, pg_temp
+as $$
+  select h.category, count(*)::bigint
+    from public.hazard_counts h
+   where h.counted_day >= current_date - 30
+   group by h.category
+   order by count(*) desc
+   limit 20;
+$$;
+revoke all on function public.api_hazard_counts() from public;
+grant execute on function public.api_hazard_counts() to anon, authenticated;
