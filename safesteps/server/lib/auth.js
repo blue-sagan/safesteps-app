@@ -82,7 +82,7 @@ async function call(pathname, { method = 'POST', body, accessToken, headers: ext
       throw new AuthError('Invalid email or password.', { status: 401, code: 'invalid_credentials' });
     }
     if (upstream.toLowerCase().includes('password should be') || upstream.toLowerCase().includes('weak password')) {
-      throw new AuthError('Choose a stronger password (at least 10 characters).', {
+      throw new AuthError('Choose a stronger password (6 to 8 characters, with letters and numbers).', {
         status: 400,
         code: 'weak_password',
       });
@@ -102,13 +102,14 @@ async function call(pathname, { method = 'POST', body, accessToken, headers: ext
   return parsed;
 }
 
-async function signUp({ email, password, fullName, phone }) {
+async function signUp({ email, password, fullName }) {
   const result = await call('/signup', {
     body: {
       email,
       password,
       // Metadata is copied into public.profiles by the server-side trigger.
-      data: { full_name: fullName, phone: phone || null },
+      // No phone: the SMS fallback was removed, so no phone number is collected.
+      data: { full_name: fullName },
     },
   });
   // Normalise: GoTrue returns either the user object directly or { user }.

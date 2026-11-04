@@ -29,6 +29,14 @@
   /* ------------------------------------------------------------------ */
   const EMAIL_RE = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 
+  // Password length policy. Short by design per product requirement (6–8
+  // characters); the strength loss is offset server-side by bcrypt hashing,
+  // per-address login throttling and the proof-of-work bot check.
+  const PASSWORD_MIN = 6;
+  const PASSWORD_MAX = 8;
+  SS.PASSWORD_MIN = PASSWORD_MIN;
+  SS.PASSWORD_MAX = PASSWORD_MAX;
+
   SS.input = {
     email(value) {
       const email = String(value || '').trim().toLowerCase();
@@ -36,10 +44,11 @@
       return email;
     },
     password(value) {
-      // Mirrors server policy so the user gets instant feedback, not a round trip.
+      // Mirrors server policy (lib/validate.js cleanPassword) so the user gets
+      // instant feedback instead of a round trip. Keep the two in step.
       const password = String(value || '');
-      if (password.length < 10 || password.length > 200) {
-        return { ok: false, message: 'Use at least 10 characters.' };
+      if (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
+        return { ok: false, message: `Use ${PASSWORD_MIN} to ${PASSWORD_MAX} characters.` };
       }
       if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
         return { ok: false, message: 'Include at least one letter and one number.' };
@@ -223,6 +232,10 @@
   }
 
   SS.crypto = {
+    // Exposed so callers that build their own envelopes can record the exact
+    // work factor used, instead of hard-coding a number that can drift.
+    PBKDF2_ITERATIONS,
+
     available() {
       return Boolean(subtle);
     },
@@ -414,6 +427,67 @@
     verify: (email, code, bot) => api('/api/auth/verify', { method: 'POST', body: { email, code, ...bot } }),
     resend: (email, bot) => api('/api/auth/resend', { method: 'POST', body: { email, ...bot } }),
     logout: () => api('/api/auth/logout', { method: 'POST', body: {} }),
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Uploads                                                            */
+  /* ------------------------------------------------------------------ */
+  /**
+   * Send one file to the server's validated upload endpoint.
+   *
+   * The server (lib/uploads.js) sniffs the leading bytes rather than trusting
+   * what we claim, so the browser cannot widen the allow-list. The file travels
+   * as a raw body with its type in headers — no multipart parser, so there is
+   * no parser to exploit — and the response is the trimmed
+   * `{path, mime, bytes, sha256}` the caller can reference later.
+   */
+  SS.uploads = {
+    MAX_BYTES: 8 * 1024 * 1024,
+    ALLOWED: ['image/jpeg', 'image/png', 'image/webp', 'audio/webm', 'audio/mpeg', 'video/mp4', 'video/webm'],
+
+    /** Local pre-flight so an obviously wrong file never leaves the device. */
+    check(file) {
+      if (!file) return { ok: false, message: 'No file selected.' };
+      if (file.size > this.MAX_BYTES) {
+        return { ok: false, message: `That file is too large (${(file.size / 1048576).toFixed(1)} MB). The limit is 8 MB.` };
+      }
+      if (this.ALLOWED.indexOf(file.type) === -1) {
+        return { ok: false, message: 'Only JPEG/PNG/WebP photos, WebM/MP3 audio or MP4/WebM video can be attached.' };
+      }
+      return { ok: true };
+    },
+
+    async upload(file, { timeout = 30000 } = {}) {
+      const verdict = this.check(file);
+      if (!verdict.ok) throw new ApiError(verdict.message, { code: 'invalid_upload' });
+
+      const response = await fetch('/api/uploads', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': file.type,
+          'X-File-Name': encodeURIComponent(file.name || 'evidence'),
+          'X-CSRF-Token': SS.csrfToken() || '',
+        },
+        body: file,
+        signal: AbortSignal.timeout(timeout),
+      });
+
+      const text = await response.text();
+      let payload = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch {
+        payload = null;
+      }
+      if (!response.ok) {
+        throw new ApiError(
+          (payload && payload.message) || 'That file could not be uploaded.',
+          { status: response.status, code: (payload && payload.error) || 'upload_failed' }
+        );
+      }
+      return payload; // { path, mime, bytes, sha256 }
+    },
   };
 
   SS.isOnline = () => global.navigator.onLine !== false;

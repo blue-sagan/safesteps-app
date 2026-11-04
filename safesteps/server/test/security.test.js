@@ -102,6 +102,7 @@ test('/api/config exposes only public values', async () => {
   assert.deepEqual(Object.keys(body).sort(), [
     'capabilities',
     'hsts',
+    'passwordMaxLength',
     'passwordMinLength',
     'supabasePublishableKey',
     'supabaseUrl',
@@ -405,7 +406,8 @@ test('validation rejects injection-shaped input', () => {
   assert.deepEqual(fieldOf(() => validation.cleanEmail('victim@example.org\r\nBcc: attacker@evil.test')), ['email']);
   assert.deepEqual(fieldOf(() => validation.cleanEmail("'; drop table users; --")), ['email']);
   assert.deepEqual(fieldOf(() => validation.cleanEmail('no-at-sign.example.org')), ['email']);
-  assert.deepEqual(fieldOf(() => validation.cleanPassword('short1')), ['password']);
+  assert.deepEqual(fieldOf(() => validation.cleanPassword('shrt1')), ['password']); // 5 chars, below the floor
+  assert.deepEqual(fieldOf(() => validation.cleanPassword('toolongpassword1')), ['password']);
   assert.deepEqual(fieldOf(() => validation.cleanPassword('password')), ['password']);
   assert.deepEqual(fieldOf(() => validation.cleanPassword('alllettersonly')), ['password']);
   assert.deepEqual(fieldOf(() => validation.cleanOtp('12')), ['code']);
@@ -414,7 +416,10 @@ test('validation rejects injection-shaped input', () => {
   assert.deepEqual(fieldOf(() => validation.cleanText('abcdefgh', { max: 5 })), ['value']);
 
   // And the messages themselves are helpful.
-  assert.throws(() => validation.cleanPassword('short1'), (error) => /at least 10/.test(error.fields.password));
+  assert.throws(() => validation.cleanPassword('shrt1'), (error) => /6 to 8/.test(error.fields.password));
+  // The upper bound is enforced too, so the published policy and the check agree.
+  assert.throws(() => validation.cleanPassword('toolongpass1'), (error) => /6 to 8/.test(error.fields.password));
+  assert.equal(validation.cleanPassword('Horse1x2'), 'Horse1x2'); // 8 chars, not a common password
   assert.throws(() => validation.cleanOtp('12'), (error) => /6–8 digits/.test(error.fields.code));
 });
 

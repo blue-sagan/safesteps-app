@@ -85,13 +85,20 @@ const WEAK_PASSWORDS = new Set([
   'safesteps', 'safesteps123', 'abc123', 'monkey', 'dragon', '111111', '123123',
 ]);
 
+// Product requirement: passwords are 6–8 characters, so the bounds are exact
+// rather than a floor. Keep PASSWORD_MIN/MAX in step with the client
+// (assets/security.js) and with Supabase Auth's own password policy, otherwise
+// the auth service rejects a value this server accepted.
+const PASSWORD_MIN = 6;
+const PASSWORD_MAX = 8;
+
 function cleanPassword(value, label = 'password') {
   if (!isString(value)) throw new ValidationError({ [label]: 'Enter a password.' });
-  if (value.length < 10) {
-    throw new ValidationError({ [label]: 'Use at least 10 characters.' });
+  if (value.length < PASSWORD_MIN) {
+    throw new ValidationError({ [label]: `Use ${PASSWORD_MIN} to ${PASSWORD_MAX} characters.` });
   }
-  if (value.length > 200) {
-    throw new ValidationError({ [label]: 'Must be at most 200 characters.' });
+  if (value.length > PASSWORD_MAX) {
+    throw new ValidationError({ [label]: `Use ${PASSWORD_MIN} to ${PASSWORD_MAX} characters.` });
   }
   if (WEAK_PASSWORDS.has(value.toLowerCase())) {
     throw new ValidationError({ [label]: 'That password is too common — choose another.' });
@@ -178,4 +185,6 @@ module.exports = {
   cleanEnum,
   only,
   assertPayloadSize,
+  PASSWORD_MIN,
+  PASSWORD_MAX,
 };

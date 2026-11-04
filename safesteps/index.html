@@ -813,13 +813,8 @@
       </div>
 
       <div style="margin-bottom:12px;">
-        <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">📱 Optional Phone for SMS Fallback (+254):</label>
-        <input id="onbPhone" type="tel" placeholder="e.g. +254 712 345678 (Africa's Talking SMS)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
-      </div>
-
-      <div style="margin-bottom:12px;">
         <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Create Password:</label>
-        <input id="onbPassword" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+        <input id="onbPassword" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
       </div>
 
       <!-- Honeypot: hidden from humans, irresistible to form-scraping bots. -->
@@ -858,8 +853,8 @@
       <button class="btn-teal" style="width:100%; padding:15px; font-size:16px; font-weight:800; border-radius:12px; margin-bottom:10px;" onclick="verifySubmittedCode(true)">✅ Verify Code &amp; Enter App</button>
 
       <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-top:8px;">
-        <button onclick="resendAccountCode(true)" style="background:none; border:none; color:var(--teal); font-weight:700; cursor:pointer;">🔄 Resend 4-Digit Code</button>
-        <a href="mailto:safestepske@gmail.com?subject=SafeSteps%20Verification%20Code%20Not%20Received&amp;body=I%20did%20not%20receive%20my%204-digit%20verification%20code%20from%20safestepske@gmail.com.%20Please%20assist%20me%20in%20verifying%20my%20account." style="display:inline-block; margin-left:10px; font-size:11.5px; color:#FFC107; text-decoration:underline;">📧 Email Support Fallback (if EmailJS unavailable)</a>
+        <button onclick="resendAccountCode(true)" style="background:none; border:none; color:var(--teal); font-weight:700; cursor:pointer;">🔄 Resend 8-Digit Code</button>
+        <a href="mailto:safestepske@gmail.com?subject=SafeSteps%20Verification%20Code%20Not%20Received&amp;body=I%20did%20not%20receive%20my%208-digit%20verification%20code%20from%20safestepske@gmail.com.%20Please%20assist%20me%20in%20verifying%20my%20account." style="display:inline-block; margin-left:10px; font-size:11.5px; color:#FFC107; text-decoration:underline;">📧 Email Support (code not arriving?)</a>
         <button onclick="editSignUpEmail(true)" style="background:none; border:none; color:var(--text-dim); cursor:pointer;">✏️ Change Email</button>
       </div>
     </div>
@@ -927,7 +922,7 @@
       <div id="accountSignUpView" style="display:none;">
         <div class="google-account-card">
           <h3 style="font-size:16px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:8px;"><span>🔐</span> Create Your SafeSteps Account</h3>
-          <p style="font-size:13px; color:var(--text-dim); margin:0 0 16px; line-height:1.5;">Enter your full name, email address, and password below. Upon submission, our system will generate a secure 4-digit code and send it right to your email from <b>safestepske@gmail.com</b>.</p>
+          <p style="font-size:13px; color:var(--text-dim); margin:0 0 16px; line-height:1.5;">Enter your full name, email address, and password below. Upon submission, our system will generate a secure 8-digit code and send it right to your email from <b>safestepske@gmail.com</b>.</p>
           
           <div style="margin-bottom:12px;">
             <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Full Name:</label>
@@ -940,13 +935,8 @@
           </div>
 
           <div style="margin-bottom:12px;">
-            <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">📱 Optional Phone for SMS Fallback (+254):</label>
-            <input id="accPhone" type="tel" placeholder="e.g. +254 712 345678 (Africa's Talking SMS)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
-          </div>
-
-          <div style="margin-bottom:12px;">
             <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Create Password:</label>
-            <input id="accPassword" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+            <input id="accPassword" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
           </div>
 
           <!-- Honeypot: hidden from humans, irresistible to form-scraping bots. -->
@@ -2876,12 +2866,25 @@ if(state.familyProfiles.length === 0){
 }
 function persist(){
   try{
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    // Evidence blobs are never written to localStorage: a data: URL of a
+    // photo/video is megabytes of unencrypted, at-rest plaintext. Persist the
+    // report with the media stripped, keep the in-memory copy for this session,
+    // and let the encrypted upload be the durable copy.
+    const serialisable = (state.integrityReports || []).map(r => (
+      r && r.mediaUrl ? Object.assign({}, r, { mediaUrl: null, mediaUploaded: Boolean(r.mediaUploaded) }) : r
+    ));
+    const snapshot = Object.assign({}, state, { integrityReports: serialisable });
+    localStorage.setItem(LS_KEY, JSON.stringify(snapshot));
   }catch(e){
     if(state.integrityReports && state.integrityReports.length > 15) state.integrityReports = state.integrityReports.slice(0, 15);
     if(state.posts && state.posts.length > 25) state.posts = state.posts.slice(0, 25);
     if(state.reports && state.reports.length > 40) state.reports = state.reports.slice(0, 40);
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(err){ console.error("Storage quota full:", err); }
+    try{
+      const trimmed = Object.assign({}, state, {
+        integrityReports: (state.integrityReports || []).map(r => (r ? Object.assign({}, r, { mediaUrl: null }) : r)),
+      });
+      localStorage.setItem(LS_KEY, JSON.stringify(trimmed));
+    }catch(err){ console.error("Storage quota full:", err); }
   }
 }
 
@@ -9099,7 +9102,6 @@ function generateNewCaptchaChallenge(){
 
 /* Legacy shims: these operated entirely in the browser and no longer exist. */
 function checkRateLimit(){ return true; }
-async function sendSmsVerificationCodeViaAfricasTalking(){ /* server-side only */ }
 
 async function submitAccountForm(isOnboarding){
   if(serverCapabilities && serverCapabilities.auth === false){
@@ -9108,14 +9110,12 @@ async function submitAccountForm(isOnboarding){
   }
   const nameInput  = isOnboarding ? document.getElementById("onbFullName") : document.getElementById("accFullName");
   const emailInput = isOnboarding ? document.getElementById("onbEmail") : document.getElementById("accEmail");
-  const phoneInput = isOnboarding ? document.getElementById("onbPhone") : document.getElementById("accPhone");
   const passInput  = isOnboarding ? document.getElementById("onbPassword") : document.getElementById("accPassword");
   const trapInput  = isOnboarding ? document.getElementById("onbWebsite") : document.getElementById("accWebsite");
 
   const fullName = SS.input.text(nameInput ? nameInput.value : "", { min: 2, max: 80 });
   const email    = SS.input.email(emailInput ? emailInput.value : "");
   const passwordCheck = SS.input.password(passInput ? passInput.value : "");
-  const phone    = phoneInput && phoneInput.value ? phoneInput.value.trim() : null;
 
   if(!fullName){ showToast("Please enter your full name (e.g. David Kamau)"); return; }
   if(!email){ showToast("Please enter a valid email address (e.g. david.kamau@gmail.com)"); return; }
@@ -9130,7 +9130,6 @@ async function submitAccountForm(isOnboarding){
       fullName: fullName,
       email: email,
       password: passwordCheck.value,
-      phone: phone || null,
       website: trapInput ? trapInput.value : ""
     }, bot);
 
@@ -9655,6 +9654,10 @@ async function submitIntegrityReport(){
     officer: officer || "Unspecified / Refused to give badge",
     plate: plate || "Not captured",
     description: desc || "Attached multimedia evidence of corruption / illegal extortion.",
+    // Held in memory for THIS session only. A data: URL of a photo/video is
+    // tens of megabytes and is not encrypted at rest, so it is deliberately not
+    // persisted with the rest of the report (see stripEphemeralMedia in
+    // persist()); the durable copy is the encrypted upload to /api/uploads.
     mediaUrl: integrityMediaDataUrl || null,
     mediaType: integrityMediaType || null,
     timestamp: nowStr,
@@ -9718,6 +9721,22 @@ async function encryptAndUploadIntegrityReport(record, isAnon){
       capturedAt: record.timestamp
     }));
 
+    // Media, when attached, goes to the validated upload endpoint first: the
+    // server sniffs the bytes, renames the object and returns a path + SHA-256
+    // we can reference from the report row. A failed upload must not lose the
+    // narrative, so it is best-effort.
+    let media = null;
+    if(integrityMediaFile){
+      try{
+        media = await SS.uploads.upload(integrityMediaFile);
+        record.mediaUploaded = true;
+        record.mediaSha256 = media.sha256;
+      }catch(uploadErr){
+        console.warn("Evidence file not uploaded:", uploadErr && uploadErr.message);
+        showToast("📎 Report saved, but the attachment could not be uploaded: " + (uploadErr && uploadErr.message ? uploadErr.message : "unknown error"));
+      }
+    }
+
     await SS.api("/api/integrity", {
       method: "POST",
       body: {
@@ -9726,7 +9745,10 @@ async function encryptAndUploadIntegrityReport(record, isAnon){
         anonymous: Boolean(isAnon),
         narrativeCiphertext: sealed.narrative_ciphertext,
         narrativeIv: sealed.narrative_iv,
-        narrativeSalt: sealed.narrative_salt
+        narrativeSalt: sealed.narrative_salt,
+        mediaPath: media ? media.path : null,
+        mediaMime: media ? media.mime : null,
+        mediaSha256: media ? media.sha256 : null
       }
     });
     showToast("🔐 Encrypted dossier stored. Only this device can read it.");
@@ -10100,7 +10122,10 @@ async function refreshServerCapabilities(){
   try{
     serverCapabilities = await SS.session.capabilities();
   }catch(e){
+    // Distinguish "the server says accounts are off" from "we could not reach
+    // the server". Both are non-fatal; only the former hides the forms.
     serverCapabilities = null;
+    console.info("Server capabilities unavailable (offline or server down):", e && e.message);
   }
   renderServerCapabilityNotice();
   return serverCapabilities;
@@ -10119,7 +10144,15 @@ function renderServerCapabilityNotice(){
     if(text) text.textContent = "Everything offline still works. This deployment has not been given Supabase credentials, so sign-up and sign-in cannot run yet.";
     if(signUpView) signUpView.style.display = "none";
     if(signInView) signInView.style.display = "none";
+  } else if(text && text.dataset.wasHidden === "1"){
+    // Accounts came back (credentials configured, or we were briefly offline
+    // and got a stale capability answer). Restore the forms we hid earlier —
+    // otherwise a transient failure would leave the user stuck with no way to
+    // sign in for the rest of the session.
+    if(signInView && !(state.userAccount && state.userAccount.verified)) signInView.style.display = "block";
+    if(signUpView && !(state.userAccount && state.userAccount.verified)) signUpView.style.display = "block";
   }
+  if(text) text.dataset.wasHidden = accountsDisabled ? "1" : "0";
   return accountsDisabled;
 }
 
@@ -11199,21 +11232,48 @@ function removeCurriculumStudent(idx){
   }
 }
 
-function encryptWhistleblowerDossier(record){
-  try{
-    const jsonStr = JSON.stringify(record);
-    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-    return "VAULT_ENC_" + encoded;
-  }catch(e){ return JSON.stringify(record); }
+/* Whistleblower dossier sealing.
+   The previous implementation was base64 with a "VAULT_ENC_" prefix — an
+   encoding, not encryption, indistinguishable from plaintext to anyone reading a
+   localStorage dump. These now use AES-256-GCM through SS.crypto with a
+   passphrase-derived key (PBKDF2-SHA256), so the stored string is real
+   ciphertext. Legacy "VAULT_ENC_" values are still PARSED (with a console
+   warning) so pre-existing records are not lost, but nothing new is written in
+   that format. */
+const DOSSIER_PREFIX = "VAULT_SS1_";
+async function encryptWhistleblowerDossier(record, password){
+  if(!password || String(password).length < 8){
+    throw new Error("A passphrase of at least 8 characters is required to seal a dossier.");
+  }
+  if(!window.SS || !SS.crypto || !SS.crypto.available()){
+    throw new Error("This browser cannot encrypt dossiers (Web Crypto unavailable).");
+  }
+  const salt = SS.crypto.randomBytes(16);
+  const key = await SS.crypto.deriveKey(password, salt);
+  const sealed = await SS.crypto.encryptString(key, JSON.stringify(record));
+  return DOSSIER_PREFIX + JSON.stringify({
+    v: 1,
+    kdf: "PBKDF2-SHA256",
+    iterations: (SS.crypto.PBKDF2_ITERATIONS || 310000),
+    salt: btoa(String.fromCharCode.apply(null, salt)),
+    iv: sealed.iv,
+    ct: sealed.ciphertext
+  });
 }
-function decryptWhistleblowerDossier(encryptedStr){
-  try{
-    if(typeof encryptedStr === "string" && encryptedStr.startsWith("VAULT_ENC_")){
-      const raw = decodeURIComponent(escape(atob(encryptedStr.slice(10))));
-      return JSON.parse(raw);
-    }
-    return typeof encryptedStr === "string" ? JSON.parse(encryptedStr) : encryptedStr;
-  }catch(e){ return encryptedStr; }
+async function decryptWhistleblowerDossier(stored, password){
+  if(typeof stored !== "string") return stored;
+  if(stored.startsWith(DOSSIER_PREFIX)){
+    const envelope = JSON.parse(stored.slice(DOSSIER_PREFIX.length));
+    const salt = Uint8Array.from(atob(envelope.salt), c => c.charCodeAt(0));
+    const key = await SS.crypto.deriveKey(password, salt, envelope.iterations);
+    const plain = await SS.crypto.decryptString(key, envelope.ct, envelope.iv);
+    return JSON.parse(plain);
+  }
+  if(stored.startsWith("VAULT_ENC_")){
+    console.warn("Legacy dossier found: this record was base64-encoded, not encrypted. Re-save it to seal it properly.");
+    return JSON.parse(decodeURIComponent(escape(atob(stored.slice(10)))));
+  }
+  return JSON.parse(stored);
 }
 
 const splashStart = Date.now();

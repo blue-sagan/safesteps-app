@@ -137,7 +137,8 @@ async function handleConfig(req, res) {
   sendJson(res, 200, {
     supabaseUrl: config.supabase.url,
     supabasePublishableKey: config.supabase.publishableKey,
-    passwordMinLength: 10,
+    passwordMinLength: v.PASSWORD_MIN,
+    passwordMaxLength: v.PASSWORD_MAX,
     hsts: config.isProduction,
     // Public-safe capability flags so the UI can disable what cannot work
     // instead of letting the user hit an error they cannot fix.
@@ -154,18 +155,19 @@ async function handleChallenge(req, res) {
 async function handleRegister(req, res) {
   requireCapability('auth', AUTH_HINT);
   const body = await guardSensitive(req, 'register');
-  v.only(body, ['fullName', 'email', 'password', 'phone', 'website', 'botChallenge', 'botNonce']);
+  // `phone` is deliberately absent: the SMS fallback was removed, so the
+  // server no longer accepts or stores a phone number for an account.
+  v.only(body, ['fullName', 'email', 'password', 'website', 'botChallenge', 'botNonce']);
 
   const fullName = v.cleanText(body.fullName, { min: 2, max: 80, allowNewlines: false, label: 'fullName' });
   const email = v.cleanEmail(body.email);
   const password = v.cleanPassword(body.password);
-  const phone = v.cleanPhone(body.phone);
 
   // Per-address limit in addition to the per-IP one, so one IP cannot spray
   // registrations across many addresses or hammer a single victim address.
   await rateLimit.enforce('register', `email:${email}`);
 
-  const result = await auth.signUp({ email, password, fullName, phone });
+  const result = await auth.signUp({ email, password, fullName });
 
   // Always issue a challenge — even when the address is already registered or
   // the id could not be read back — so the response is identical either way and

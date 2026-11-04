@@ -18,7 +18,7 @@ authority, and sensitive data is encrypted before it leaves the device.
 | Before | After |
 | --- | --- |
 | EmailJS public key + service/template ids hard-coded in `index.html` | No mail credentials in client code at all; the server owns SMTP and enqueues mail |
-| Africa's Talking API key read from `localStorage` and used from the browser | Removed; SMS is a server-side concern |
+| Africa's Talking API key read from `localStorage` and used from the browser | Removed entirely — the SMS fallback is gone, and the sign-up form no longer collects a phone number |
 | NTSA `apiKey` slot in client config | Still `null`, documented as server-side only |
 
 Credentials now live only in `server/.env` (git-ignored) and in Supabase project
@@ -161,8 +161,20 @@ hashes them with **bcrypt** (server-side, per user, salted). This repo never
 implements its own password hashing — the previous `btoa(password)` (encryption
 that is neither salted nor slow, and trivially reversible) is removed, and any
 stored `passwordHash` left behind by older builds is purged from `localStorage`
-on boot. Policy: ≥10 characters, letter+number, common-password blocklist,
-enforced on the server and mirrored in the client for instant feedback.
+on boot.
+
+Policy: **6–8 characters**, at least one letter and one number, plus a
+common-password blocklist. The bounds are exact (not a floor) because the
+product specifies a short PIN-style password; `validation.cleanPassword` is the
+single server-side gate and `SS.input.password` mirrors it exactly, so the client
+cannot offer a value the server will reject. The `minlength`/`maxlength`
+attributes on the sign-up and sign-in inputs match as well.
+
+Short passwords shift weight onto the other controls, which is why they are
+non-optional here: bcrypt hashing in the auth service, per-address login
+throttling (10 / 15 min) on top of per-IP limiting, the proof-of-work bot check
+on register/login/verify, and `__Host-` session cookies. If the password policy
+is ever relaxed further, those limits must not be relaxed with it.
 
 ---
 

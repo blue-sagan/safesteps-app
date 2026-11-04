@@ -258,7 +258,7 @@ test.after(() => {
 /* ------------------------------------------------------------------ */
 
 const EMAIL = 'probe.user@example.org';
-const PASSWORD = 'ProbePassw0rd1';
+const PASSWORD = 'Probe1x'; // 8 chars — matches the 6–8 character policy
 
 test('email sign-up, verification, then login — the whole journey', async (t) => {
   const bot = await botProof();
