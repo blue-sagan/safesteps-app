@@ -104,6 +104,7 @@ check_client 'service_role|sb_secret_' 'no service-role key material in client c
 check_client 'emailjs\.(init|send)' 'no client-side mail SDK (credentials belong on the server)'
 check_client 'EMAILJS_(SERVICE|TEMPLATE|PUBLIC|PRIVATE)' 'no EmailJS identifiers in browser-served code'
 check_client 'api\.emailjs\.com' 'the browser never calls the mail provider directly'
+check_client 'SEND_EMAIL_HOOK_SECRET|whsec_' 'the hook signing secret never reaches the client'
 check_client 'passwordHash:[[:space:]]*(btoa|atob)' 'passwords are never encoded into storage'
 check_client 'apiKey:[[:space:]]*["'\''][A-Za-z0-9]{8,}' 'no hard-coded API keys'
 check_client 'document\.write\(' 'no document.write()'

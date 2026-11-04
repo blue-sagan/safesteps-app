@@ -116,6 +116,8 @@ async function requestListener(req, res) {
         // Which transports exist — booleans only, never a credential. Lets an
         // operator confirm a key is wired up without reading it back.
         mailTransports: config.mailTransports(),
+        // 'hook' | 'admin' | 'none' — how an address gets confirmed.
+        confirmRoute: config.confirmRoute(),
         configWarnings: (config.warnings || []).length,
       })
     );

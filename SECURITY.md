@@ -396,6 +396,38 @@ the deployment. Nothing here is a code change:
    sent when one wasn't. The message is encrypted and kept in the `outbound_mail`
    spool so it can be drained once a transport is configured.
 
+   **The settled route: Supabase's Send Email Hook.** EmailJS has no SMTP relay
+   of its own — a "service" is a mailbox you connected — so it cannot be pasted
+   into Supabase's SMTP settings. Instead, enable the **Send Email** auth hook
+   (Dashboard → Authentication → Hooks) pointing at
+   `https://<origin>/api/hooks/send-email`. GoTrue then posts each auth email to
+   this server, signed with Standard Webhooks, and we relay it through EmailJS.
+
+   Two things fall out of that, both of which fix the login problem:
+
+   1. **No service-role key is needed.** The code is GoTrue's own, so `/verify`
+      returns a real session instead of us having to write a "confirmed" flag
+      through the admin API. `confirmRoute` in `/healthz` reads `hook`.
+   2. **The code the user receives is one `/verify` will accept.** Previously the
+      server generated its own code, which GoTrue would always reject — the
+      underlying reason sign-in never completed.
+
+   ```bash
+   ./scripts/connect-emailjs-supabase.sh         # writes EmailJS keys + generates the hook secret
+   ./scripts/connect-emailjs-supabase.sh --check  # expects confirmRoute=hook
+   ```
+
+   The endpoint is public by necessity, so the signature is the boundary:
+   HMAC-SHA256 over `id.timestamp.body` with the hook secret, constant-time
+   compare, and a 5-minute timestamp window against replay. The recipient always
+   comes from the signed `user.email` — never from the request URL. With no
+   secret configured the endpoint answers 503 and trusts nothing.
+
+   **Without the hook**, the older route still works: the server generates the
+   code and confirms the address with `SUPABASE_SERVICE_ROLE_KEY` (that is
+   `confirmRoute: admin`). It needs the key and it puts an RLS-bypassing
+   credential in the web process, which is why the hook is preferred.
+
    **EmailJS, server-side only.** The key lives in the server environment and is
    used from `lib/mailer.js` against `api.emailjs.com` — the browser never
    receives it, there is no `emailjs.init()` in the client, and nothing is read
@@ -403,8 +435,8 @@ the deployment. Nothing here is a code change:
    build, which shipped the key in `index.html`. Wiring it up:
 
    ```bash
-   ./scripts/connect-emailjs.sh      # prompts without echo, writes server/.env (mode 600)
-   ./scripts/connect-emailjs.sh --check
+   ./scripts/connect-emailjs-supabase.sh        # prompts without echo, writes server/.env (mode 600)
+   ./scripts/connect-emailjs-supabase.sh --check
    ```
 
    The template receives `to_email`, `subject`, `message`/`body` and — for

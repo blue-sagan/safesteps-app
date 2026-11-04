@@ -11,6 +11,7 @@ const config = require('./config');
 const auth = require('./auth');
 const db = require('./db');
 const uploads = require('./uploads');
+const sendEmailHook = require('./send-email-hook');
 const verification = require('./verification');
 const bot = require('./bot-protection');
 const rateLimit = require('./rate-limit');
@@ -169,16 +170,23 @@ async function handleRegister(req, res) {
 
   const result = await auth.signUp({ email, password, fullName });
 
-  // Always issue a challenge — even when the address is already registered or
-  // the id could not be read back — so the response is identical either way and
-  // cannot be used to enumerate accounts. The userId link is required for the
-  // verify step to confirm the address (see handleVerify).
-  const challenge = await verification.startChallenge({
-    email,
-    name: fullName,
-    purpose: 'signup',
-    userId: result.id || null,
-  });
+  // Which code the user receives depends on who generated it.
+  //
+  // Hook configured: the auth service generated a token during /signup and handed
+  // it to /api/hooks/send-email, which relayed it. `/verify` will accept it, so
+  // we must NOT compose a second, competing code here — that is exactly the bug
+  // that made every code unusable before.
+  //
+  // No hook: our own challenge, mailed by our own transport, confirmed through
+  // the admin API.
+  const challenge = sendEmailHook.isConfigured()
+    ? { delivered: true }
+    : await verification.startChallenge({
+        email,
+        name: fullName,
+        purpose: 'signup',
+        userId: result.id || null,
+      });
 
   // Be explicit about delivery. Silently claiming "check your email" when no
   // transport is configured is how sign-up becomes an unexplainable dead end.
@@ -200,6 +208,49 @@ async function handleVerify(req, res) {
 
   const email = v.cleanEmail(body.email);
   const code = v.cleanOtp(body.code);
+
+  // PREFERRED PATH — Send Email Hook configured.
+  //
+  // The auth service generated this code and will accept it, so handing it back
+  // to /verify both confirms the address and returns a real session. That is why
+  // no service-role key is needed: nothing has to be flipped by us, and GoTrue
+  // is the only party deciding whether the code is right.
+  if (sendEmailHook.isConfigured()) {
+    try {
+      const tokens = await auth.verifyEmailOtp({ email, token: code });
+      const csrf = session.csrfToken();
+      session.setSessionCookies(res, {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        csrf,
+      });
+      const user = (tokens && tokens.user) || {};
+      sendJson(res, 200, {
+        status: 'verified',
+        message: 'Email verified. You are signed in.',
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: (user.user_metadata && user.user_metadata.full_name) || null,
+          emailVerified: true,
+        },
+        expiresIn: (tokens && tokens.expires_in) || 3600,
+      });
+      return;
+    } catch (error) {
+      db.query('INSERT INTO security_audit (event, detail, created_at) VALUES (?, ?, ?)', [
+        'verify_failed',
+        clientIpHash(req),
+        Date.now(),
+      ]);
+      // One message for every failure mode: the endpoint must not become an
+      // oracle for whether an address has a pending code.
+      const err = new Error('That code is not correct or has expired. Request a new one.');
+      err.status = 400;
+      err.code = 'invalid_code';
+      throw err;
+    }
+  }
 
   const result = verification.verifyChallenge({ email, code });
   if (!result.ok) {
@@ -761,6 +812,77 @@ async function handleIntegrityDispatch(req, res) {
   sendJson(res, 202, { status: 'queued', caseReference });
 }
 
+/* --------------------- Supabase Send Email Hook -------------------- */
+
+/**
+ * Receives GoTrue's auth mail and relays it through our own transport.
+ *
+ * Public endpoint by necessity, so the signature is the security boundary: see
+ * lib/send-email-hook.js for the Standard-Webhooks check. A request that does
+ * not verify is refused before the body is even parsed into anything useful.
+ */
+async function handleSendEmailHook(req, res) {
+  if (!sendEmailHook.isConfigured()) {
+    const err = new Error('This endpoint is not enabled on this server.');
+    err.status = 503;
+    err.code = 'hook_not_configured';
+    throw err;
+  }
+
+  // Raw body is required: the signature covers the exact bytes sent.
+  const raw = await readBody(req, { limit: 64 * 1024 });
+  const rawBody = raw.toString('utf8');
+
+  const verdict = sendEmailHook.verifySignature({ headers: req.headers, rawBody });
+  if (!verdict.ok) {
+    console.warn('[hook] rejected send-email request: %s', verdict.reason);
+    const err = new Error('Invalid signature.');
+    err.status = 401;
+    err.code = 'invalid_signature';
+    throw err;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    throw Object.assign(new Error('Malformed payload.'), { status: 400, code: 'invalid_request' });
+  }
+
+  const emailData = (payload && payload.email_data) || {};
+  const user = (payload && payload.user) || {};
+  const recipient = typeof user.email === 'string' ? user.email.trim().toLowerCase() : '';
+  if (!recipient) {
+    throw Object.assign(new Error('Payload has no recipient.'), { status: 400, code: 'invalid_request' });
+  }
+
+  const { subject, text, code } = sendEmailHook.render({
+    actionType: emailData.email_action_type,
+    token: emailData.token,
+    siteUrl: emailData.site_url,
+  });
+
+  const delivery = await mailer.enqueue({
+    recipient,
+    subject,
+    body: text,
+    verificationCode: code || null,
+  });
+
+  // GoTrue retries on a non-2xx, so only report failure when we genuinely could
+  // not hand the message to a transport.
+  if (!delivery.delivered) {
+    console.error('[hook] mail transport could not deliver auth mail');
+    const err = new Error('Mail transport unavailable.');
+    err.status = 502;
+    err.code = 'mail_undeliverable';
+    throw err;
+  }
+
+  // Empty object is the documented success response.
+  sendJson(res, 200, {});
+}
+
 /* ------------------------------ account --------------------------- */
 
 async function handleDeleteAccount(req, res) {
@@ -813,6 +935,8 @@ async function handle(req, res, url) {
     'POST /api/integrity/dispatch': handleIntegrityDispatch,
     'POST /api/uploads': handleUpload,
     'POST /api/account/delete': handleDeleteAccount,
+    // Supabase Auth "Send Email Hook" target (signed, not session-authenticated).
+    'POST /api/hooks/send-email': handleSendEmailHook,
   };
 
   const handler = routes[route];

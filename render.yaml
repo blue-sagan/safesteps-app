@@ -43,6 +43,9 @@ services:
         sync: false
       - key: EMAILJS_TEMPLATE_VERIFICATION
         sync: false
+      # Supabase Send Email Hook signing secret (lets GoTrue mail through us).
+      - key: SEND_EMAIL_HOOK_SECRET
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

@@ -20,7 +20,7 @@ safesteps/                 the PWA itself (static, offline-first)
   server/                  the trusted server (secrets + API live here only)
 scripts/security-audit.sh  secrets + dependency + header + regression checks
 scripts/verify-deployment.sh  the same gate, against a running/deployed origin
-scripts/connect-emailjs.sh    wire EmailJS into the server without echoing secrets
+scripts/connect-emailjs-supabase.sh  EmailJS via Supabase's Send Email Hook (recommended)
 SECURITY.md                what was hardened, and how to verify it
 ```
 
@@ -53,23 +53,27 @@ Required environment (see `server/.env.example`):
 | `SERVER_DATA_KEY` | base64 32-byte AES-256-GCM key for at-rest encryption |
 | `SMTP_*`, `MAIL_FROM` | optional; without them the server falls back to Supabase's mailer, then to an encrypted local spool |
 
-**Email sign-in needs a mail transport.** Set `SMTP_*`, or `EMAILJS_*` (EmailJS
-is called from the server, not the browser — the key never reaches the client),
-or rely on the Supabase project's mailer. Without any of them, sign-up still
-works but the app reports that no email could be sent rather than pretending
-otherwise. To connect EmailJS:
+**Email sign-in needs a mail path.** The one that works end to end is Supabase's
+**Send Email Hook**: GoTrue mails through this server, which relays via EmailJS
+or SMTP. Because the code is then GoTrue's own, `/verify` returns a real session
+and **no service-role key is required**.
 
 ```bash
-./scripts/connect-emailjs.sh          # hidden prompts → server/.env, mode 600
-./scripts/connect-emailjs.sh --check  # confirm the running server sees it
+./scripts/connect-emailjs-supabase.sh          # EmailJS keys + generated hook secret
+# then Dashboard → Authentication → Hooks → Send Email: HTTP,
+#   https://<origin>/api/hooks/send-email, secret from server/.env
+./scripts/connect-emailjs-supabase.sh --check  # expects confirmRoute=hook
 ```
 
-See SECURITY.md → "Enabling email sign-in".
+EmailJS has **no SMTP relay** of its own (a "service" is a mailbox you connected),
+so it cannot be pasted into Supabase's SMTP settings — the hook is the supported
+route. Without the hook, the fallback generates its own code and needs
+`SUPABASE_SERVICE_ROLE_KEY`. See SECURITY.md → "Enabling email sign-in".
 
 ## Tests and audit
 
 ```bash
-cd safesteps/server && npm test                  # 48 behavioural security tests
+cd safesteps/server && npm test                  # 55 behavioural security tests
 ./scripts/security-audit.sh                      # secrets in tree+history, deps, headers, tests
 ./scripts/verify-deployment.sh http://localhost:8080   # 36 checks against a *running* server
 ```
@@ -103,6 +107,7 @@ Set these in the host's dashboard — never in Git:
 | `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM` | optional mail transport (first choice) |
 | `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID`, `EMAILJS_PUBLIC_KEY`, `EMAILJS_PRIVATE_KEY` | optional mail transport (second choice), server-side only |
 | `EMAILJS_TEMPLATE_VERIFICATION` | optional dedicated template for verification codes |
+| `SEND_EMAIL_HOOK_SECRET` | Supabase Send Email Hook signing secret — preferred path, no service-role key needed |
 | `NODE_ENV=production` | turns on HSTS, `Secure`/`__Host-` cookies and HTTPS enforcement |
 
 Then prove it: `./scripts/verify-deployment.sh https://your-origin.example`.

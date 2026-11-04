@@ -68,18 +68,41 @@ function bool(value, fallback = false) {
 const supabaseUrl = required('SUPABASE_URL').replace(/\/+$/, '');
 const publishableKey = required('SUPABASE_PUBLISHABLE_KEY');
 
-// Features that cannot work without credentials, checked at request time.
-const capabilities = () => ({
-  auth: Boolean(supabaseUrl && publishableKey),
-  emailVerification: Boolean(supabaseUrl && publishableKey && serviceRoleKey),
-  // True when at least one transport can actually deliver: SMTP, the EmailJS
-  // REST API, or Supabase Auth's own mailer. The specific transport is reported
-  // separately (booleans only) by config.mailTransports().
-  mailTransport: Boolean(
+/**
+ * Supabase's Send Email Hook. When set, the auth service mails through us
+ * instead of its own mailer — which is what lets /verify return a real session
+ * without the service-role key.
+ */
+function hookConfigured() {
+  return Boolean((process.env.SEND_EMAIL_HOOK_SECRET || '').trim());
+}
+
+/** True when at least one outbound transport can actually deliver. */
+function mailTransportConfigured() {
+  return Boolean(
     (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) ||
       (process.env.EMAILJS_SERVICE_ID && process.env.EMAILJS_TEMPLATE_ID && process.env.EMAILJS_PUBLIC_KEY) ||
       (supabaseUrl && publishableKey)
+  );
+}
+
+// Features that cannot work without credentials, checked at request time.
+const capabilities = () => ({
+  auth: Boolean(supabaseUrl && publishableKey),
+  // Email sign-in works in two shapes, neither of which needs us to write a
+  // "confirmed" flag:
+  //   hook  — the auth service issues the code, posts it to
+  //           /api/hooks/send-email, we relay it, and /verify trades the code
+  //           for a session. No service-role key anywhere in the flow.
+  //   admin — no hook, so we generate the code and confirm the address through
+  //           the admin API, which does need the service-role key.
+  emailVerification: Boolean(
+    supabaseUrl && publishableKey && (hookConfigured() || (serviceRoleKey && mailTransportConfigured()))
   ),
+  // True when at least one transport can actually deliver: SMTP, the EmailJS
+  // REST API, or Supabase Auth's own mailer. The specific transport is reported
+  // separately (booleans only) by config.mailTransports().
+  mailTransport: mailTransportConfigured(),
   atRestEncryption: Boolean(serverDataKey),
 });
 
@@ -215,6 +238,19 @@ config.capabilities = capabilities;
  * Reporting these lets an operator confirm "EmailJS is live" from /healthz
  * without ever exposing the key.
  */
+/**
+ * Which route confirms an address:
+ *   'hook'  — Supabase Send Email Hook (no service-role key needed)
+ *   'admin' — service-role key + our own code
+ *   'none'  — email sign-in cannot complete
+ * Operator information, not a capability, so it never affects `degraded`.
+ */
+config.confirmRoute = () => {
+  if (hookConfigured()) return 'hook';
+  if (supabaseUrl && publishableKey && serviceRoleKey) return 'admin';
+  return 'none';
+};
+
 config.mailTransports = () => ({
   smtp: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
   emailjs: Boolean(
