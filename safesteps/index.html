@@ -9115,7 +9115,7 @@ async function submitAccountForm(isOnboarding){
 
   try{
     const bot = await SS.botProof();
-    await SS.session.register({
+    const registration = await SS.session.register({
       fullName: fullName,
       email: email,
       password: passwordCheck.value,
@@ -9138,7 +9138,12 @@ async function submitAccountForm(isOnboarding){
       if(emailLbl) emailLbl.textContent = email;
     }
     renderAccountPage();
-    showToast("📧 Verification code sent to " + email + ". Check your inbox.");
+    if(registration && registration.delivered === false){
+      // Do not claim an email was sent when the server could not send one.
+      showToast("⚠️ Account created, but this server could not send email. Ask the administrator to configure a mail transport.");
+    } else {
+      showToast("📧 Verification code sent to " + email + ". Check your inbox.");
+    }
   }catch(err){
     showToast("⚠️ " + (err && err.message ? err.message : "Could not create the account. Please try again."));
     SS.resetBotChallenge();
@@ -9186,8 +9191,10 @@ function resendAccountCode(isOnboarding){
   (async function(){
     try{
       const bot = await SS.botProof();
-      await SS.session.resend(email, bot);
-      showToast("📧 A new code is on its way to " + email + ".");
+      const resent = await SS.session.resend(email, bot);
+      showToast(resent && resent.delivered === false
+        ? "⚠️ A new code was created, but this server has no mail transport configured."
+        : "📧 A new code is on its way to " + email + ".");
     }catch(err){
       showToast("⚠️ " + (err && err.message ? err.message : "Could not resend the code."));
       SS.resetBotChallenge();

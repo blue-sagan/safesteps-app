@@ -103,7 +103,7 @@ async function call(pathname, { method = 'POST', body, accessToken, headers: ext
 }
 
 async function signUp({ email, password, fullName, phone }) {
-  return call('/signup', {
+  const result = await call('/signup', {
     body: {
       email,
       password,
@@ -111,6 +111,15 @@ async function signUp({ email, password, fullName, phone }) {
       data: { full_name: fullName, phone: phone || null },
     },
   });
+  // Normalise: GoTrue returns either the user object directly or { user }.
+  // The id is needed to link the verification challenge to the account later;
+  // without it, a correct code could be validated but never confirm the email.
+  const user = (result && result.user) || result || null;
+  return {
+    id: user && user.id ? user.id : null,
+    email: user && user.email ? user.email : email,
+    alreadyRegistered: Boolean(user && user.id && Array.isArray(user.identities) && user.identities.length === 0),
+  };
 }
 
 async function signIn({ email, password }) {
@@ -133,6 +142,19 @@ async function logout(accessToken) {
 async function requestPasswordReset(email, redirectTo) {
   const suffix = redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : '';
   return call(`/recover${suffix}`, { body: { email } });
+}
+
+/**
+ * Ask the auth service to email a one-time code to the address.
+ *
+ * This is the path used when the deployment has no SMTP credentials of its own:
+ * the code is generated and delivered by Supabase Auth, so the value the user
+ * types in is one the auth service itself will accept. It is only ever called
+ * after our own rate limits and bot checks have passed, so it cannot be used to
+ * spray email.
+ */
+async function sendEmailOtp(email) {
+  return call('/otp', { body: { email, create_user: false } });
 }
 
 async function getUser(accessToken) {
@@ -189,5 +211,6 @@ module.exports = {
   getUser,
   resendConfirmation,
   verifyEmailOtp,
+  sendEmailOtp,
   adminConfirmEmail,
 };

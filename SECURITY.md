@@ -326,6 +326,62 @@ Two real defects were found this way and fixed:
    helper functions (schema `USAGE` / function `EXECUTE` were missing). Granted
    the minimum, with the helpers pinned `SECURITY DEFINER` + fixed `search_path`.
 
+## Enabling email sign-in (required for email login to work)
+
+Email login is fully implemented, but it depends on three things being present in
+the deployment. Nothing here is a code change:
+
+1. **A mail transport.** Either
+   - `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` in `server/.env` (the server's own
+     mailer), **or**
+   - the Supabase project's built-in mailer, which the server falls back to
+     automatically (`POST /auth/v1/otp`) when no SMTP credentials exist.
+
+   If neither is available the account is still created, but the API returns
+   `delivered: false` and the app says so plainly — it never claims an email was
+   sent when one wasn't. The message is encrypted and kept in the `outbound_mail`
+   spool so it can be drained once a transport is configured.
+
+2. **`SUPABASE_SERVICE_ROLE_KEY`.** Confirming an address is a trusted,
+   server-only operation (`PUT /auth/v1/admin/users/:id`). Without this key the
+   verify step fails with `503 verify_unavailable` instead of pretending to
+   succeed and leaving the user stuck on "email not confirmed".
+
+3. **A deliverable mailbox.** Supabase's default mailer only sends to addresses
+   on the project's team and is rate limited; for real users, point the project's
+   SMTP settings (or `SMTP_*` here) at a transactional provider.
+
+Two project settings also matter (both are already set on `safesteps`):
+`mailer_autoconfirm = false` (so an address must be verified) and
+`mailer_otp_length = 8`.
+
+### How the flow was verified
+
+`server/test/auth-flow.test.js` stands up a faithful fake of the exact endpoints
+the server calls (`/signup`, `/otp`, `/token`, `/admin/users/:id`, `/user`, and
+the service-role RPCs) and drives the real server through the complete journey:
+
+```
+register → challenge linked to the new user → verification email queued
+        → login refused ("email unconfirmed")
+        → wrong code rejected → correct code confirms the address server-side
+        → code is single-use → login succeeds → hardened cookies set
+        → session authenticates /api/auth/me → response contains no tokens
+```
+
+That test caught three real defects, now fixed:
+
+1. `signUp()` never returned the new user id, so the challenge was stored with
+   `user_id = null` and verification could not confirm the account.
+2. `handleVerify()` only called the confirmation step *if* that id existed, and
+   otherwise returned `200 verified` — reporting success while leaving the
+   account unconfirmed (login then failed with no explanation). It now repairs a
+   missing link via `api_user_id_by_email`, and fails loudly if it cannot.
+3. The verification challenge was written straight to `private.*` through
+   PostgREST, which is not exposed — so the write silently failed. It now goes
+   through the service-role RPC `api_create_challenge`, and a failed remote
+   queue write falls back to the local spool instead of dropping the message.
+
 ## Operational notes
 
 - **Rotate now**: the EmailJS public key and Africa's Talking key that were in

@@ -114,7 +114,7 @@ printf '  info inline event handlers: %s (CSP allows script-src-attr '"'"'unsafe
 # ---------------------------------------------------------------------------
 section "4. Security regression tests"
 # ---------------------------------------------------------------------------
-if (cd "$APP_DIR/server" && node --test test/security.test.js >/tmp/safesteps-tests.log 2>&1); then
+if (cd "$APP_DIR/server" && node --test test/*.test.js >/tmp/safesteps-tests.log 2>&1); then
   SUMMARY="$(grep -E '^# (tests|pass|fail)' /tmp/safesteps-tests.log | tr '\n' ' ')"
   pass "test suite: $SUMMARY"
 else

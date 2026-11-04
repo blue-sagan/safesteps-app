@@ -739,3 +739,47 @@ begin
 end $$;
 
 commit;
+
+-- ---------------------------------------------------------------------------
+-- 16. Service-role-only RPCs for the private schema
+-- ---------------------------------------------------------------------------
+-- PostgREST does not expose the `private` schema, so the server reaches these
+-- tables through SECURITY DEFINER functions that only service_role may execute.
+-- `api_create_challenge` also carries the auth.users id link: without it a
+-- correct verification code can be validated but never confirm the account.
+
+create or replace function public.api_create_challenge(
+  p_id uuid, p_email_hash text, p_code_hash text, p_name_hash text,
+  p_expires_at timestamptz, p_user_id uuid default null
+)
+returns void
+language plpgsql security definer
+set search_path = private, public, pg_temp
+as $$
+begin
+  if p_email_hash !~ '^[0-9a-f]{64}$' or p_code_hash !~ '^[0-9a-f]{64}$' then
+    raise exception 'invalid challenge fingerprint';
+  end if;
+  if p_expires_at <= now() or p_expires_at > now() + interval '1 hour' then
+    raise exception 'invalid challenge expiry';
+  end if;
+  insert into private.verification_challenges
+    (id, email_hash, code_hash, full_name_hash, expires_at, attempts, created_at, user_id)
+  values (p_id, p_email_hash, p_code_hash, p_name_hash, p_expires_at, 0, now(), p_user_id);
+end $$;
+
+revoke all on function public.api_create_challenge(uuid, text, text, text, timestamptz, uuid)
+  from public, anon, authenticated;
+grant execute on function public.api_create_challenge(uuid, text, text, text, timestamptz, uuid)
+  to service_role;
+
+-- Resolve the account that owns an address (used only to repair a missing
+-- challenge link). Never callable by a client role.
+create or replace function public.api_user_id_by_email(p_email text)
+returns uuid
+language sql security definer
+set search_path = auth, pg_temp
+as $$ select id from auth.users where lower(email) = lower(p_email) limit 1 $$;
+
+revoke all on function public.api_user_id_by_email(text) from public, anon, authenticated;
+grant execute on function public.api_user_id_by_email(text) to service_role;

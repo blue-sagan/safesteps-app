@@ -79,23 +79,29 @@ async function startChallenge({ email, name, purpose = 'signup', userId = null }
 
   if (config.supabase.serviceRoleKey) {
     try {
-      await fetch(`${config.supabase.url}/rest/v1/verification_challenges`, {
+      // NOTE: `private` is not exposed through PostgREST, so this table must be
+      // reached through the service-role-only RPC. It also carries the user id
+      // link, which is what lets the verify step confirm the email.
+      const persisted = await fetch(`${config.supabase.url}/rest/v1/rpc/api_create_challenge`, {
         method: 'POST',
         headers: {
           apikey: config.supabase.serviceRoleKey,
           Authorization: `Bearer ${config.supabase.serviceRoleKey}`,
           'Content-Type': 'application/json',
-          Prefer: 'return=minimal',
         },
         body: JSON.stringify({
-          id: record.id,
-          email_hash: record.emailHash,
-          code_hash: record.codeHash,
-          full_name_hash: record.nameHash,
-          expires_at: new Date(record.expiresAt).toISOString(),
+          p_id: record.id,
+          p_email_hash: record.emailHash,
+          p_code_hash: record.codeHash,
+          p_name_hash: record.nameHash,
+          p_expires_at: new Date(record.expiresAt).toISOString(),
+          p_user_id: userId || null,
         }),
         signal: AbortSignal.timeout(4000),
       });
+      if (!persisted.ok) {
+        console.error('[verify] challenge persist failed', persisted.status);
+      }
     } catch (error) {
       console.error('[verify] challenge persist note:', error.message);
     }
@@ -110,9 +116,21 @@ async function startChallenge({ email, name, purpose = 'signup', userId = null }
   );
 
   const { subject, body } = subjectAndBody({ name, code, purpose });
-  const delivery = await mailer.enqueue({ recipient: email, subject, body });
+  // When no SMTP transport exists, fall back to the auth service's own mailer.
+  // Callers can disable it (purpose 'reset' uses the recovery link instead).
+  const delivery = await mailer.enqueue({
+    recipient: email,
+    subject,
+    body,
+    provider: purpose === 'signup' ? () => require('./auth').sendEmailOtp(email) : null,
+  });
 
-  return { challengeId: record.id, expiresInSeconds: Math.floor(TTL_MS / 1000), delivered: delivery.delivered };
+  return {
+    challengeId: record.id,
+    expiresInSeconds: Math.floor(TTL_MS / 1000),
+    delivered: delivery.delivered,
+    via: delivery.via || null,
+  };
 }
 
 /**
@@ -146,7 +164,33 @@ function verifyChallenge({ email, code }) {
   }
 
   db.query('UPDATE verification_challenges SET consumed_at = ? WHERE id = ?', [now, row.id]);
-  return { ok: true, challengeId: row.id, userId: row.user_id || null };
+  return { ok: true, challengeId: row.id, userId: row.user_id || null, email };
+}
+
+/**
+ * Ask the database who owns a verified address. Used only to repair a missing
+ * link (e.g. the server restarted between sign-up and verification). This is a
+ * server-side, service-role lookup — the browser can never call it.
+ */
+async function lookupUserIdByEmail(email) {
+  if (!config.supabase.serviceRoleKey) return null;
+  try {
+    const response = await fetch(`${config.supabase.url}/rest/v1/rpc/api_user_id_by_email`, {
+      method: 'POST',
+      headers: {
+        apikey: config.supabase.serviceRoleKey,
+        Authorization: `Bearer ${config.supabase.serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_email: email }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) return null;
+    const id = await response.json();
+    return typeof id === 'string' && id.length === 36 ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Invalidate outstanding codes for an address (used on password reset / resend). */
@@ -157,4 +201,7 @@ function invalidate(email) {
   );
 }
 
-module.exports = { startChallenge, verifyChallenge, invalidate, TTL_MS, MAX_ATTEMPTS, CODE_DIGITS };
+module.exports = {
+  startChallenge, verifyChallenge, invalidate, lookupUserIdByEmail,
+  TTL_MS, MAX_ATTEMPTS, CODE_DIGITS,
+};

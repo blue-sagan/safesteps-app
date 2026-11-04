@@ -143,15 +143,25 @@ async function handleRegister(req, res) {
 
   const result = await auth.signUp({ email, password, fullName, phone });
 
-  // Do not reveal whether the address was already registered.
-  const needsVerification = Boolean(result && result.id);
-  if (needsVerification) {
-    await verification.startChallenge({ email, name: fullName, purpose: 'signup' });
-  }
+  // Always issue a challenge — even when the address is already registered or
+  // the id could not be read back — so the response is identical either way and
+  // cannot be used to enumerate accounts. The userId link is required for the
+  // verify step to confirm the address (see handleVerify).
+  const challenge = await verification.startChallenge({
+    email,
+    name: fullName,
+    purpose: 'signup',
+    userId: result.id || null,
+  });
 
+  // Be explicit about delivery. Silently claiming "check your email" when no
+  // transport is configured is how sign-up becomes an unexplainable dead end.
   sendJson(res, 202, {
     status: 'verification_required',
-    message: 'Check your email for the verification code.',
+    message: challenge.delivered
+      ? 'Check your email for the verification code.'
+      : 'Your account was created, but this server could not deliver email. Ask the administrator to configure a mail transport (see SECURITY.md).',
+    delivered: Boolean(challenge.delivered),
     codeLength: verification.CODE_DIGITS,
     expiresInSeconds: Math.floor(verification.TTL_MS / 1000),
   });
@@ -179,19 +189,39 @@ async function handleVerify(req, res) {
     throw err;
   }
 
-  // The code was generated and validated on the server, so the account may now
+  // The code is generated and validated on the server, so the account may now
   // be confirmed in a trusted way. This uses the service-role key, which exists
   // only in this process — the browser can never confirm an address itself.
-  if (result.userId) {
-    try {
-      await auth.adminConfirmEmail(result.userId);
-    } catch (error) {
-      console.error('[verify] confirm note:', error.message);
-      const err = new Error('We validated the code but could not finish activating the account. Please contact support.');
-      err.status = 502;
-      err.code = 'verify_incomplete';
-      throw err;
-    }
+  //
+  // IMPORTANT: reporting "verified" without actually confirming the address
+  // would leave the user unable to sign in ("email not confirmed") with no
+  // explanation, so a missing link is repaired, and a failure is surfaced.
+  let userId = result.userId;
+  if (!userId) {
+    userId = await verification.lookupUserIdByEmail(email);
+  }
+  if (!userId) {
+    const err = new Error('We could not find the account for that code. Please sign up again.');
+    err.status = 400;
+    err.code = 'no_pending_account';
+    throw err;
+  }
+  if (!config.supabase.serviceRoleKey) {
+    const err = new Error(
+      'Email confirmation is not configured on this server. An administrator must set SUPABASE_SERVICE_ROLE_KEY.'
+    );
+    err.status = 503;
+    err.code = 'verify_unavailable';
+    throw err;
+  }
+  try {
+    await auth.adminConfirmEmail(userId);
+  } catch (error) {
+    console.error('[verify] confirm failed:', error.message);
+    const err = new Error('The code was correct, but we could not activate the account. Please try again shortly.');
+    err.status = 502;
+    err.code = 'verify_incomplete';
+    throw err;
   }
 
   sendJson(res, 200, {
@@ -326,13 +356,21 @@ async function handleResend(req, res) {
   const body = await guardSensitive(req, 'forgot');
   v.only(body, ['email', 'website', 'botChallenge', 'botNonce']);
   const email = v.cleanEmail(body.email);
+  let delivered = false;
   try {
     verification.invalidate(email);
-    await verification.startChallenge({ email, name: '', purpose: 'signup' });
+    const challenge = await verification.startChallenge({ email, name: '', purpose: 'signup' });
+    delivered = Boolean(challenge.delivered);
   } catch (error) {
     console.warn('[resend]', error.message);
   }
-  sendJson(res, 202, { status: 'sent', message: 'If verification is pending, a new code has been sent.' });
+  sendJson(res, 202, {
+    status: 'sent',
+    delivered,
+    message: delivered
+      ? 'If verification is pending, a new code has been sent.'
+      : 'If verification is pending, a new code was created, but this server has no mail transport configured.',
+  });
 }
 
 /* ----------------------------- records ---------------------------- */

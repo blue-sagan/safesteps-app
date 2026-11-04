@@ -18,36 +18,58 @@ const db = require('./db');
 
 const FROM = process.env.MAIL_FROM || 'SafeSteps Kenya <no-reply@safesteps.local>';
 
+/**
+ * Delivery is "configured" when either a real SMTP transport is present, or the
+ * Supabase project has a mail provider (Supabase Auth's built-in mailer). The
+ * latter matters because it means sign-in emails can still work with no local
+ * SMTP credentials — we route the message through the auth service instead of
+ * silently leaving it in a queue nobody drains.
+ */
 function isConfigured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-async function enqueue({ recipient, subject, body, channel = 'email' }) {
+function supabaseMailerAvailable() {
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY);
+}
+
+async function enqueue({ recipient, subject, body, channel = 'email', provider = null }) {
   const encryptedBody = config.security.serverDataKey
     ? db.encryptAtRest(body, config.security.serverDataKey)
     : body; // queue is already private; encryption adds defence in depth when configured
 
-  // Prefer the Postgres queue (shared across instances) when service creds exist.
+  // Persist to the Postgres queue (shared across instances) when service creds
+  // exist; otherwise — or if that write fails — keep it in the local queue.
+  // A message must never be dropped on the floor because one store was
+  // unavailable: that turns "check your email" into a silent dead end.
+  let persisted = false;
   if (config.supabase.serviceRoleKey) {
-    const response = await fetch(`${config.supabase.url}/rest/v1/rpc/api_enqueue_mail`, {
-      method: 'POST',
-      headers: {
-        apikey: config.supabase.serviceRoleKey,
-        Authorization: `Bearer ${config.supabase.serviceRoleKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        p_recipient: recipient,
-        p_subject: subject,
-        p_body: encryptedBody,
-        p_channel: channel,
-      }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) {
-      console.error('[mail] queue write failed', response.status);
+    try {
+      const response = await fetch(`${config.supabase.url}/rest/v1/rpc/api_enqueue_mail`, {
+        method: 'POST',
+        headers: {
+          apikey: config.supabase.serviceRoleKey,
+          Authorization: `Bearer ${config.supabase.serviceRoleKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          p_recipient: recipient,
+          p_subject: subject,
+          p_body: encryptedBody,
+          p_channel: channel,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+      persisted = response.ok;
+      if (!response.ok) {
+        console.error('[mail] remote queue write failed, falling back to local queue:', response.status);
+      }
+    } catch (error) {
+      console.error('[mail] remote queue unreachable, falling back to local queue:', error.message);
     }
-  } else {
+  }
+
+  if (!persisted) {
     db.query(
       'INSERT INTO outbound_mail (recipient, subject, body, channel, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [recipient, subject, encryptedBody, channel, 'queued', Date.now()]
@@ -55,14 +77,24 @@ async function enqueue({ recipient, subject, body, channel = 'email' }) {
   }
 
   if (!isConfigured()) {
-    // Honest, non-fatal degradation: the message is queued, not sent.
-    console.info('[mail] queued (SMTP not configured) channel=%s', channel);
+    // No local transport. Rather than parking the code in a queue nothing
+    // drains (which makes sign-up silently impossible), hand it to the auth
+    // service's own mailer when the project has one configured.
+    if (supabaseMailerAvailable() && typeof provider === 'function') {
+      try {
+        await provider();
+        return { queued: true, delivered: true, via: 'supabase-auth' };
+      } catch (error) {
+        console.error('[mail] provider delivery failed:', error.message);
+      }
+    }
+    console.info('[mail] queued (no transport configured) channel=%s — see SECURITY.md "Enabling email sign-in"', channel);
     return { queued: true, delivered: false };
   }
 
   try {
     await sendSmtp({ to: recipient, subject, text: body });
-    return { queued: true, delivered: true };
+    return { queued: true, delivered: true, via: 'smtp' };
   } catch (error) {
     console.error('[mail] SMTP delivery failed:', error.message);
     return { queued: true, delivered: false };

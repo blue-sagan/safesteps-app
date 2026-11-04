@@ -43,7 +43,12 @@ Required environment (see `server/.env.example`):
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only**; verification bookkeeping |
 | `VERIFICATION_PEPPER` | HMAC pepper for code/rate-limit fingerprints |
 | `SERVER_DATA_KEY` | base64 32-byte AES-256-GCM key for at-rest encryption |
-| `SMTP_*`, `MAIL_FROM` | optional; without them mail is queued, not sent |
+| `SMTP_*`, `MAIL_FROM` | optional; without them the server falls back to Supabase's mailer, then to an encrypted local spool |
+
+**Email sign-in needs a mail transport.** Either set `SMTP_*`, or rely on the
+Supabase project's mailer (the server falls back to it automatically). Without
+either, sign-up still works but the app reports that no email could be sent
+rather than pretending otherwise. See SECURITY.md → "Enabling email sign-in". 
 
 ## Tests and audit
 
