@@ -1,0 +1,79 @@
+{
+  "lastUpdated": "2026-07-11",
+  "note": "These points are carried over from SafeSteps' existing Embu-area hazard list. They have not been cross-checked against an NTSA, county, or police report, so they are labelled 'Community/local knowledge' rather than 'Official' until verified. Replace 'source' and set verified:true once you've confirmed a point against a named report (NTSA annual report, county traffic office, gazetted blackspot list, etc.) — see the README note at the bottom of this file for how to add real official data.",
+  "hotspots": [
+    {
+      "id": 1,
+      "lat": -0.5310,
+      "lng": 37.4510,
+      "county": "Embu",
+      "type": "junction",
+      "description": "Kubu-Kubu Junction — poor visibility, heavy matatu turning traffic.",
+      "severity": "high",
+      "source": "Community/local knowledge (unverified)",
+      "verified": false,
+      "dateNoted": "2026"
+    },
+    {
+      "id": 2,
+      "lat": -0.5387,
+      "lng": 37.4552,
+      "county": "Embu",
+      "type": "pedestrian",
+      "description": "Embu Market Roundabout — congested; boda bodas weave between vehicles.",
+      "severity": "high",
+      "source": "Community/local knowledge (unverified)",
+      "verified": false,
+      "dateNoted": "2026"
+    },
+    {
+      "id": 3,
+      "lat": -0.5265,
+      "lng": 37.4494,
+      "county": "Embu",
+      "type": "school",
+      "description": "Kangaru School Crossing — no zebra crossing; children cross during rush hour.",
+      "severity": "high",
+      "source": "Community/local knowledge (unverified)",
+      "verified": false,
+      "dateNoted": "2026"
+    },
+    {
+      "id": 4,
+      "lat": -0.5145,
+      "lng": 37.4610,
+      "county": "Embu",
+      "type": "highway",
+      "description": "Embu–Meru Highway Bypass — high-speed through traffic, limited pedestrian paths.",
+      "severity": "medium",
+      "source": "Community/local knowledge (unverified)",
+      "verified": false,
+      "dateNoted": "2026"
+    },
+    {
+      "id": 5,
+      "lat": -0.5602,
+      "lng": 37.4488,
+      "county": "Embu",
+      "type": "matatu_stage",
+      "description": "Karurumo Stage — matatu stage spills into the road, blind spots.",
+      "severity": "medium",
+      "source": "Community/local knowledge (unverified)",
+      "verified": false,
+      "dateNoted": "2026"
+    },
+    {
+      "id": 6,
+      "lat": -0.5453,
+      "lng": 37.4633,
+      "county": "Embu",
+      "type": "pedestrian",
+      "description": "Manyatta Market Area — busy foot traffic mixed with boda bodas.",
+      "severity": "medium",
+      "source": "Community/local knowledge (unverified)",
+      "verified": false,
+      "dateNoted": "2026"
+    }
+  ],
+  "readme": "HOW TO ADD REAL OFFICIAL DATA: set 'source' to the exact report name (e.g. 'NTSA Annual Report 2025' or 'Embu County Traffic Dept, June 2026'), set 'verified' to true, and the app will show a shield badge and list it under 'Official Hotspots'. Do not mark a point verified unless you can point to the specific document or office that confirmed it — county road-safety committees and the NTSA county office are the best contacts for gazetted blackspot lists."
+}
