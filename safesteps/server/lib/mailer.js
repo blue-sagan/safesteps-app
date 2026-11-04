@@ -3,14 +3,18 @@
 /**
  * Outbound mail.
  *
- * The browser can no longer trigger email: there is no public EmailJS key and
- * no client-side service id anywhere in the app. Instead the server:
+ * The browser can never trigger email: there is no EmailJS key, service id or
+ * template id anywhere in client code. Instead the server:
  *   1. encrypts the message body with AES-256-GCM (SERVER_DATA_KEY),
  *   2. stores it in the private outbound_mail queue (service-role only), and
- *   3. if SMTP is configured, hands it to a transport; otherwise the queue
- *      keeps it for a worker/cron to drain.
+ *   3. hands it to a transport — SMTP, or the EmailJS REST API — when one is
+ *      configured; otherwise the queue keeps it for a worker/cron to drain.
  *
- * The verification code is never written to logs.
+ * Transport order (first configured wins):
+ *   SMTP_*  →  EMAILJS_*  →  Supabase Auth's mailer  →  encrypted local spool
+ *
+ * The verification code is never written to logs, and no provider credential is
+ * ever included in a response.
  */
 
 const config = require('./config');
@@ -25,15 +29,99 @@ const FROM = process.env.MAIL_FROM || 'SafeSteps Kenya <no-reply@safesteps.local
  * SMTP credentials — we route the message through the auth service instead of
  * silently leaving it in a queue nobody drains.
  */
-function isConfigured() {
+function smtpConfigured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+}
+
+/**
+ * EmailJS REST API. The key here is the *private* one where the account offers
+ * it; a public key also works because the API is called from the server, never
+ * from a browser — the browser never learns it. Values are read from the
+ * environment only, so rotating a key needs no code change and nothing is ever
+ * committed.
+ */
+function emailJsConfig() {
+  const serviceId = (process.env.EMAILJS_SERVICE_ID || '').trim();
+  const templateId = (process.env.EMAILJS_TEMPLATE_ID || '').trim();
+  const publicKey = (process.env.EMAILJS_PUBLIC_KEY || '').trim();
+  const privateKey = (process.env.EMAILJS_PRIVATE_KEY || '').trim();
+  const templateVerification = (process.env.EMAILJS_TEMPLATE_VERIFICATION || '').trim();
+  const endpoint = (process.env.EMAILJS_API_URL || 'https://api.emailjs.com/api/v1.0/email/send').trim();
+  return { serviceId, templateId, publicKey, privateKey, templateVerification, endpoint };
+}
+
+function emailJsConfigured() {
+  const { serviceId, templateId, publicKey } = emailJsConfig();
+  return Boolean(serviceId && templateId && publicKey);
+}
+
+/** True when any transport can actually deliver a message right now. */
+function isConfigured() {
+  return smtpConfigured() || emailJsConfigured();
 }
 
 function supabaseMailerAvailable() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY);
 }
 
-async function enqueue({ recipient, subject, body, channel = 'email', provider = null }) {
+/**
+ * Deliver one message through EmailJS. The request body is the EmailJS
+ * `email/send` shape; template params carry the same fields the SMTP message
+ * would, so one template can serve every mail this server sends.
+ *
+ * Errors are returned, never thrown with the request body attached: a provider
+ * error message can echo the recipient or the payload.
+ */
+async function sendEmailJs({ to, subject, text, templateId, code = null }) {
+  const cfg = emailJsConfig();
+  const payload = {
+    service_id: cfg.serviceId,
+    template_id: templateId || cfg.templateId,
+    user_id: cfg.publicKey,
+    template_params: {
+      to_email: to,
+      // Common alias names, so an existing template does not have to be edited.
+      email: to,
+      reply_to: extractAddress(FROM),
+      from_name: extractName(FROM),
+      subject,
+      // Both common body variables, for the same reason.
+      message: text,
+      body: text,
+      // Present only for verification mail, so a template can render
+      // {{verification_code}} directly instead of parsing the body.
+      ...(code ? { verification_code: code } : {}),
+    },
+  };
+  if (cfg.privateKey) payload.accessToken = cfg.privateKey;
+
+  const response = await fetch(cfg.endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    // Trim and scrub: only the status and a short reason are logged.
+    const reason = String(detail || '').replace(/\s+/g, ' ').slice(0, 120);
+    throw new Error(`EmailJS rejected the message (${response.status})${reason ? `: ${reason}` : ''}`);
+  }
+  return { ok: true };
+}
+
+async function enqueue({
+  recipient,
+  subject,
+  body,
+  channel = 'email',
+  provider = null,
+  // Optional: when present, the EmailJS verification template is used so the
+  // code can be a first-class template variable instead of being parsed out of
+  // the body. The code is never persisted in cleartext beyond the queue row.
+  verificationCode = null,
+}) {
   const encryptedBody = config.security.serverDataKey
     ? db.encryptAtRest(body, config.security.serverDataKey)
     : body; // queue is already private; encryption adds defence in depth when configured
@@ -92,13 +180,49 @@ async function enqueue({ recipient, subject, body, channel = 'email', provider =
     return { queued: true, delivered: false };
   }
 
-  try {
-    await sendSmtp({ to: recipient, subject, text: body });
-    return { queued: true, delivered: true, via: 'smtp' };
-  } catch (error) {
-    console.error('[mail] SMTP delivery failed:', error.message);
-    return { queued: true, delivered: false };
+  // SMTP first: it delivers to any mailbox with no third-party rate limit.
+  if (smtpConfigured()) {
+    try {
+      await sendSmtp({ to: recipient, subject, text: body });
+      return { queued: true, delivered: true, via: 'smtp' };
+    } catch (error) {
+      console.error('[mail] SMTP delivery failed:', error.message);
+      // Fall through to EmailJS rather than losing the message: sign-up should
+      // not fail because one provider is having a bad afternoon.
+      if (!emailJsConfigured()) return { queued: true, delivered: false };
+    }
   }
+
+  if (emailJsConfigured()) {
+    const cfg = emailJsConfig();
+    const templateId = verificationCode && cfg.templateVerification ? cfg.templateVerification : cfg.templateId;
+    try {
+      await sendEmailJs({
+        to: recipient,
+        subject,
+        text: verificationCode
+          ? `${body}\n\nYour SafeSteps verification code is ${verificationCode}.`
+          : body,
+        templateId,
+        code: verificationCode,
+      });
+      return { queued: true, delivered: true, via: 'emailjs' };
+    } catch (error) {
+      console.error('[mail] EmailJS delivery failed:', error.message);
+      // Same last resort as above: the auth service's own mailer.
+      if (supabaseMailerAvailable() && typeof provider === 'function') {
+        try {
+          await provider();
+          return { queued: true, delivered: true, via: 'supabase-auth' };
+        } catch (providerError) {
+          console.error('[mail] provider delivery failed:', providerError.message);
+        }
+      }
+      return { queued: true, delivered: false, via: 'emailjs' };
+    }
+  }
+
+  return { queued: true, delivered: false };
 }
 
 /**
@@ -181,6 +305,11 @@ function sendSmtp({ to, subject, text }) {
   });
 }
 
+function extractName(value) {
+  const match = String(value).match(/^\s*"?([^"<]+?)"?\s*</);
+  return match ? match[1].trim() : extractAddress(value);
+}
+
 function extractAddress(value) {
   const match = String(value).match(/<([^>]+)>/);
   return match ? match[1] : String(value).trim();
@@ -202,4 +331,14 @@ function buildMessage({ to, subject, text }) {
   return `${headers.join('\r\n')}\r\n\r\n${body}\r\n.\r\n`;
 }
 
-module.exports = { enqueue, isConfigured };
+module.exports = {
+  enqueue,
+  isConfigured,
+  // Exposed so /healthz and the tests can report *which* transport is live
+  // without ever reading a credential value.
+  transports: () => ({
+    smtp: smtpConfigured(),
+    emailjs: emailJsConfigured(),
+    supabaseAuth: supabaseMailerAvailable(),
+  }),
+};

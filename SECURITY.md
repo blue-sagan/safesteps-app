@@ -17,7 +17,7 @@ authority, and sensitive data is encrypted before it leaves the device.
 
 | Before | After |
 | --- | --- |
-| EmailJS public key + service/template ids hard-coded in `index.html` | No mail credentials in client code at all; the server owns SMTP and enqueues mail |
+| EmailJS public key + service/template ids hard-coded in `index.html` | No mail credentials in client code at all: EmailJS is now called *from the server* (`lib/mailer.js`) with env-only keys, alongside SMTP; the browser sends nothing but the account request |
 | Africa's Talking API key read from `localStorage` and used from the browser | Removed entirely — the SMS fallback is gone, and the sign-up form no longer collects a phone number |
 | NTSA `apiKey` slot in client config | Still `null`, documented as server-side only |
 
@@ -382,16 +382,46 @@ Two real defects were found this way and fixed:
 Email login is fully implemented, but it depends on three things being present in
 the deployment. Nothing here is a code change:
 
-1. **A mail transport.** Either
+1. **A mail transport.** In this order, first configured wins:
    - `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` in `server/.env` (the server's own
-     mailer), **or**
+     mailer — any mailbox, no third-party rate limit), **or**
+   - **EmailJS** — `EMAILJS_SERVICE_ID` / `EMAILJS_TEMPLATE_ID` /
+     `EMAILJS_PUBLIC_KEY` (plus `EMAILJS_PRIVATE_KEY` if your account has one),
+     **or**
    - the Supabase project's built-in mailer, which the server falls back to
-     automatically (`POST /auth/v1/otp`) when no SMTP credentials exist.
+     automatically (`POST /auth/v1/otp`) when no other transport exists.
 
-   If neither is available the account is still created, but the API returns
+   If none is available the account is still created, but the API returns
    `delivered: false` and the app says so plainly — it never claims an email was
    sent when one wasn't. The message is encrypted and kept in the `outbound_mail`
    spool so it can be drained once a transport is configured.
+
+   **EmailJS, server-side only.** The key lives in the server environment and is
+   used from `lib/mailer.js` against `api.emailjs.com` — the browser never
+   receives it, there is no `emailjs.init()` in the client, and nothing is read
+   from `localStorage`. That is the whole difference between this and the old
+   build, which shipped the key in `index.html`. Wiring it up:
+
+   ```bash
+   ./scripts/connect-emailjs.sh      # prompts without echo, writes server/.env (mode 600)
+   ./scripts/connect-emailjs.sh --check
+   ```
+
+   The template receives `to_email`, `subject`, `message`/`body` and — for
+   verification mail — `verification_code`, so the code can be its own variable
+   instead of being parsed out of the body. A separate verification template can
+   be named with `EMAILJS_TEMPLATE_VERIFICATION`. Verification mail is the only
+   mail that carries a code, and the code is never logged.
+   `GET /healthz` reports `mailTransports: {smtp, emailjs, supabaseAuth}` as
+   booleans so you can confirm the transport is live without reading the key.
+
+   Verified two ways, because "it compiles" proves nothing about delivery:
+   `test/emailjs-flow.test.js` drives a real sign-up against a receiver that
+   speaks the EmailJS request shape and asserts the 8-digit code arrives as
+   `verification_code` *and* in the rendered body; and a live run of the server
+   with the transport enabled was confirmed to emit the exact `email/send`
+   payload (service id, template id, public key, `accessToken`, template params)
+   for an ordinary message.
 
 2. **`SUPABASE_SERVICE_ROLE_KEY`.** Confirming an address is a trusted,
    server-only operation (`PUT /auth/v1/admin/users/:id`). Without this key the
@@ -435,9 +465,11 @@ That test caught three real defects, now fixed:
 
 ## Operational notes
 
-- **Rotate now**: the EmailJS public key and Africa's Talking key that were in
-  the repo should be considered burned (they were public in a public build).
-  Delete both accounts/keys in their dashboards.
+- **Rotate now**: the EmailJS key and Africa's Talking key that were committed in
+  earlier builds should be considered burned (they were public in a public
+  build). If you are reconnecting EmailJS, mint a **new** key in the dashboard
+  rather than reusing the leaked one, and put it in the server environment — not
+  in `index.html`, not in a build variable, not in `localStorage`.
 - **Never** put `SUPABASE_SERVICE_ROLE_KEY` in the client, a build variable, or
   a CI log. It bypasses RLS entirely.
 - Backups containing `user_vaults` are safe to lose to an attacker only in the

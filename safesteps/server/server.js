@@ -113,6 +113,9 @@ async function requestListener(req, res) {
         degraded,
         uptime: Math.round(process.uptime()),
         capabilities,
+        // Which transports exist — booleans only, never a credential. Lets an
+        // operator confirm a key is wired up without reading it back.
+        mailTransports: config.mailTransports(),
         configWarnings: (config.warnings || []).length,
       })
     );

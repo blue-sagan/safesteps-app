@@ -122,6 +122,10 @@ async function startChallenge({ email, name, purpose = 'signup', userId = null }
     recipient: email,
     subject,
     body,
+    // Only pass the code through to the EmailJS path, which can put it in its
+    // own template variable. SMTP keeps using the composed body, so the code
+    // appears exactly once in the delivered message either way.
+    verificationCode: purpose === 'signup' ? code : null,
     provider: purpose === 'signup' ? () => require('./auth').sendEmailOtp(email) : null,
   });
 

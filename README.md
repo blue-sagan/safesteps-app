@@ -19,6 +19,8 @@ safesteps/                 the PWA itself (static, offline-first)
   supabase/migrations/     database schema: tables, RLS, triggers, grants
   server/                  the trusted server (secrets + API live here only)
 scripts/security-audit.sh  secrets + dependency + header + regression checks
+scripts/verify-deployment.sh  the same gate, against a running/deployed origin
+scripts/connect-emailjs.sh    wire EmailJS into the server without echoing secrets
 SECURITY.md                what was hardened, and how to verify it
 ```
 
@@ -51,15 +53,23 @@ Required environment (see `server/.env.example`):
 | `SERVER_DATA_KEY` | base64 32-byte AES-256-GCM key for at-rest encryption |
 | `SMTP_*`, `MAIL_FROM` | optional; without them the server falls back to Supabase's mailer, then to an encrypted local spool |
 
-**Email sign-in needs a mail transport.** Either set `SMTP_*`, or rely on the
-Supabase project's mailer (the server falls back to it automatically). Without
-either, sign-up still works but the app reports that no email could be sent
-rather than pretending otherwise. See SECURITY.md → "Enabling email sign-in". 
+**Email sign-in needs a mail transport.** Set `SMTP_*`, or `EMAILJS_*` (EmailJS
+is called from the server, not the browser — the key never reaches the client),
+or rely on the Supabase project's mailer. Without any of them, sign-up still
+works but the app reports that no email could be sent rather than pretending
+otherwise. To connect EmailJS:
+
+```bash
+./scripts/connect-emailjs.sh          # hidden prompts → server/.env, mode 600
+./scripts/connect-emailjs.sh --check  # confirm the running server sees it
+```
+
+See SECURITY.md → "Enabling email sign-in".
 
 ## Tests and audit
 
 ```bash
-cd safesteps/server && npm test                  # 41 behavioural security tests
+cd safesteps/server && npm test                  # 48 behavioural security tests
 ./scripts/security-audit.sh                      # secrets in tree+history, deps, headers, tests
 ./scripts/verify-deployment.sh http://localhost:8080   # 36 checks against a *running* server
 ```
@@ -90,7 +100,9 @@ Set these in the host's dashboard — never in Git:
 | `VERIFICATION_PEPPER` | `openssl rand -hex 32` |
 | `SERVER_DATA_KEY` | `openssl rand -base64 32` — **keep it stable**, losing it makes existing vault data unreadable |
 | `PUBLIC_ORIGIN` | the exact public origin, e.g. `https://safesteps.example` |
-| `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM` | optional; falls back to Supabase's mailer, then to an encrypted spool |
+| `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM` | optional mail transport (first choice) |
+| `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID`, `EMAILJS_PUBLIC_KEY`, `EMAILJS_PRIVATE_KEY` | optional mail transport (second choice), server-side only |
+| `EMAILJS_TEMPLATE_VERIFICATION` | optional dedicated template for verification codes |
 | `NODE_ENV=production` | turns on HSTS, `Secure`/`__Host-` cookies and HTTPS enforcement |
 
 Then prove it: `./scripts/verify-deployment.sh https://your-origin.example`.
@@ -107,6 +119,7 @@ protection, parameterised queries, validation, escaping, uploads, response
 trimming, headers, HTTPS, dependency scanning) to the code that implements it
 and the test that proves it.
 
-**Rotate the credentials that were previously committed** — the EmailJS public
-key and Africa's Talking key that shipped in the client are public and must be
-deleted in those dashboards.
+**Rotate the credentials that were previously committed** — the EmailJS key and
+Africa's Talking key that shipped in the client are public and must be deleted in
+those dashboards. When reconnecting EmailJS, mint a fresh key and give it to the
+server only; never put it back in `index.html`.

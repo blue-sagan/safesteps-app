@@ -72,8 +72,12 @@ const publishableKey = required('SUPABASE_PUBLISHABLE_KEY');
 const capabilities = () => ({
   auth: Boolean(supabaseUrl && publishableKey),
   emailVerification: Boolean(supabaseUrl && publishableKey && serviceRoleKey),
+  // True when at least one transport can actually deliver: SMTP, the EmailJS
+  // REST API, or Supabase Auth's own mailer. The specific transport is reported
+  // separately (booleans only) by config.mailTransports().
   mailTransport: Boolean(
     (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) ||
+      (process.env.EMAILJS_SERVICE_ID && process.env.EMAILJS_TEMPLATE_ID && process.env.EMAILJS_PUBLIC_KEY) ||
       (supabaseUrl && publishableKey)
   ),
   atRestEncryption: Boolean(serverDataKey),
@@ -205,5 +209,18 @@ if (warnings.length) {
 }
 
 config.capabilities = capabilities;
+
+/**
+ * Which mail transports are configured — never the credentials themselves.
+ * Reporting these lets an operator confirm "EmailJS is live" from /healthz
+ * without ever exposing the key.
+ */
+config.mailTransports = () => ({
+  smtp: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
+  emailjs: Boolean(
+    process.env.EMAILJS_SERVICE_ID && process.env.EMAILJS_TEMPLATE_ID && process.env.EMAILJS_PUBLIC_KEY
+  ),
+  supabaseAuth: Boolean(supabaseUrl && publishableKey),
+});
 
 module.exports = config;

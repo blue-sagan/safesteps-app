@@ -56,7 +56,9 @@ fi
 # ---------------------------------------------------------------------------
 section "2. Committed secrets"
 # ---------------------------------------------------------------------------
-SECRET_PATTERNS='(sb_secret_[A-Za-z0-9]+|service_role[^a-zA-Z]{0,4}["'\''][A-Za-z0-9_-]{20,}|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk_live_[A-Za-z0-9]{16,})'
+# A non-empty EmailJS assignment is a secret in a tracked file. The env-var
+# *name* alone (as in .env.example or the docs) must stay allowed.
+SECRET_PATTERNS='(sb_secret_[A-Za-z0-9]+|service_role[^a-zA-Z]{0,4}["'\''][A-Za-z0-9_-]{20,}|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk_live_[A-Za-z0-9]{16,}|EMAILJS_(SERVICE_ID|TEMPLATE_ID|PUBLIC_KEY|PRIVATE_KEY)=[A-Za-z0-9_-]{6,})'
 
 TREE_HITS="$(grep -rInE "$SECRET_PATTERNS" \
   --exclude-dir=.git --exclude-dir=node_modules --exclude='.env' --exclude='*.map' . 2>/dev/null || true)"
@@ -100,6 +102,8 @@ check_client() {
 }
 check_client 'service_role|sb_secret_' 'no service-role key material in client code'
 check_client 'emailjs\.(init|send)' 'no client-side mail SDK (credentials belong on the server)'
+check_client 'EMAILJS_(SERVICE|TEMPLATE|PUBLIC|PRIVATE)' 'no EmailJS identifiers in browser-served code'
+check_client 'api\.emailjs\.com' 'the browser never calls the mail provider directly'
 check_client 'passwordHash:[[:space:]]*(btoa|atob)' 'passwords are never encoded into storage'
 check_client 'apiKey:[[:space:]]*["'\''][A-Za-z0-9]{8,}' 'no hard-coded API keys'
 check_client 'document\.write\(' 'no document.write()'

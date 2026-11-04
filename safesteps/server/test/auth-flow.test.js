@@ -174,6 +174,13 @@ process.env.SQLITE_PATH = ':memory:';
 process.env.SMTP_HOST = '';
 process.env.SMTP_USER = '';
 process.env.SMTP_PASS = '';
+// Pin EmailJS off for the main journey so that test keeps asserting the
+// *provider fallback* path. The EmailJS journey has its own file.
+process.env.EMAILJS_SERVICE_ID = '';
+process.env.EMAILJS_TEMPLATE_ID = '';
+process.env.EMAILJS_PUBLIC_KEY = '';
+process.env.EMAILJS_PRIVATE_KEY = '';
+process.env.EMAILJS_API_URL = '';
 if (!process.env.SERVER_DATA_KEY) process.env.SERVER_DATA_KEY = require('node:crypto').randomBytes(32).toString('base64');
 // Deliberately NO SMTP_* : this exercises the hardest deployment shape (no
 // local mail transport, so the provider fallback and the encrypted spool are

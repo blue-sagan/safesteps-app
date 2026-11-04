@@ -617,3 +617,156 @@ test('every security header helper agrees with the response', () => {
   assert.match(headers['Content-Security-Policy'], /nonce-abc123/);
   assert.equal(headers['X-Content-Type-Options'], 'nosniff');
 });
+
+/* ------------------------------------------------------------------ */
+/* A6. EmailJS is a server-side transport, never a client key          */
+/* ------------------------------------------------------------------ */
+
+test('no EmailJS credential exists in anything a browser can load', () => {
+  const appRoot = path.join(__dirname, '..', '..');
+  const files = ['index.html', 'sw.js', path.join('assets', 'security.js')];
+  for (const file of files) {
+    const source = fs.readFileSync(path.join(appRoot, file), 'utf8');
+    assert.equal(/EMAILJS_(PUBLIC|PRIVATE|SERVICE|TEMPLATE)/.test(source), false, file);
+    assert.equal(/emailjs\.(init|send)/.test(source), false, file);
+    assert.equal(/api\.emailjs\.com/.test(source), false, file);
+  }
+});
+
+test('/healthz and /api/config never reveal a mail credential', async () => {
+  // Configure a fake EmailJS transport just for this assertion.
+  process.env.EMAILJS_SERVICE_ID = 'service_testonly';
+  process.env.EMAILJS_TEMPLATE_ID = 'template_testonly';
+  process.env.EMAILJS_PUBLIC_KEY = 'key_testonly_do_not_use';
+  process.env.EMAILJS_PRIVATE_KEY = 'private_testonly_do_not_use';
+
+  try {
+    const config = require('../lib/config');
+    assert.equal(config.capabilities().mailTransport, true);
+    assert.deepEqual(config.mailTransports(), { smtp: false, emailjs: true, supabaseAuth: true });
+
+    // Read fresh (capabilities are computed per call, not cached).
+    for (const route of ['/healthz', '/api/config']) {
+      const body = await (await fetch(`${base}${route}`)).text();
+      assert.equal(/testonly/.test(body), false, `${route} leaked a credential-shaped value`);
+      assert.equal(/EMAILJS_/.test(body), false, `${route} leaked an environment variable name`);
+    }
+  } finally {
+    delete process.env.EMAILJS_SERVICE_ID;
+    delete process.env.EMAILJS_TEMPLATE_ID;
+    delete process.env.EMAILJS_PUBLIC_KEY;
+    delete process.env.EMAILJS_PRIVATE_KEY;
+  }
+});
+
+test('a mail transport is only "configured" when every part is present', () => {
+  const mailer = require('../lib/mailer');
+  process.env.EMAILJS_SERVICE_ID = 'service_testonly';
+  process.env.EMAILJS_TEMPLATE_ID = '';
+  process.env.EMAILJS_PUBLIC_KEY = 'key_testonly';
+  try {
+    assert.equal(mailer.transports().emailjs, false, 'a partial configuration must not claim to work');
+  } finally {
+    delete process.env.EMAILJS_SERVICE_ID;
+    delete process.env.EMAILJS_TEMPLATE_ID;
+    delete process.env.EMAILJS_PUBLIC_KEY;
+  }
+});
+
+test('EmailJS delivery: the request is well-formed and reports success', async () => {
+  // No egress from the test environment, so point the transport at a local
+  // endpoint that records exactly what would have been sent. This exercises the
+  // real send path (payload shape, auth fields, template selection) without a
+  // network dependency.
+  const http = require('node:http');
+  const received = [];
+  const receiver = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      received.push({ headers: req.headers, body: JSON.parse(body) });
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('OK');
+    });
+  });
+  await new Promise((resolve) => receiver.listen(0, '127.0.0.1', resolve));
+
+  process.env.EMAILJS_SERVICE_ID = 'service_testonly';
+  process.env.EMAILJS_TEMPLATE_ID = 'template_default';
+  process.env.EMAILJS_TEMPLATE_VERIFICATION = 'template_verify';
+  process.env.EMAILJS_PUBLIC_KEY = 'key_testonly';
+  process.env.EMAILJS_PRIVATE_KEY = 'private_testonly';
+  process.env.EMAILJS_API_URL = `http://127.0.0.1:${receiver.address().port}/api/v1.0/email/send`;
+
+  try {
+    const mailer = require('../lib/mailer');
+    const result = await mailer.enqueue({
+      recipient: 'driver@example.org',
+      subject: 'Your SafeSteps verification code',
+      body: 'Use the code below to finish signing in.',
+      verificationCode: '49382716',
+    });
+
+    assert.equal(result.delivered, true);
+    assert.equal(result.via, 'emailjs');
+    assert.equal(received.length, 1);
+
+    const sent = received[0].body;
+    assert.equal(sent.service_id, 'service_testonly');
+    assert.equal(sent.template_id, 'template_verify', 'the verification template must be preferred when a code is present');
+    assert.equal(sent.user_id, 'key_testonly');
+    assert.equal(sent.accessToken, 'private_testonly', 'the private key authenticates the call when provided');
+    assert.equal(sent.template_params.to_email, 'driver@example.org');
+    assert.equal(sent.template_params.verification_code, '49382716');
+    assert.match(sent.template_params.subject, /verification code/i);
+    assert.match(String(received[0].headers['content-type']), /application\/json/);
+
+    // Ordinary mail uses the default template and carries no code.
+    await mailer.enqueue({
+      recipient: 'desk@eacc.go.ke',
+      subject: 'Case reference ABC-123',
+      body: 'Summary of allegation.',
+    });
+    const second = received[1].body;
+    assert.equal(second.template_id, 'template_default');
+    assert.equal('verification_code' in second.template_params, false);
+  } finally {
+    await new Promise((resolve) => receiver.close(resolve));
+    for (const key of [
+      'EMAILJS_SERVICE_ID', 'EMAILJS_TEMPLATE_ID', 'EMAILJS_TEMPLATE_VERIFICATION',
+      'EMAILJS_PUBLIC_KEY', 'EMAILJS_PRIVATE_KEY', 'EMAILJS_API_URL',
+    ]) delete process.env[key];
+  }
+});
+
+test('a failing EmailJS call reports delivered:false instead of claiming success', async () => {
+  const http = require('node:http');
+  const receiver = http.createServer((req, res) => {
+    req.resume();
+    req.on('end', () => { res.writeHead(422, { 'Content-Type': 'text/plain' }); res.end('The recipient address is invalid'); });
+  });
+  await new Promise((resolve) => receiver.listen(0, '127.0.0.1', resolve));
+
+  process.env.EMAILJS_SERVICE_ID = 'service_testonly';
+  process.env.EMAILJS_TEMPLATE_ID = 'template_default';
+  process.env.EMAILJS_PUBLIC_KEY = 'key_testonly';
+  process.env.EMAILJS_API_URL = `http://127.0.0.1:${receiver.address().port}/send`;
+
+  try {
+    const mailer = require('../lib/mailer');
+    const result = await mailer.enqueue({
+      recipient: 'nobody@example.org',
+      subject: 'Test',
+      body: 'Test body',
+    });
+    // Supabase Auth's mailer is "available" from the URL/key pair, and the code
+    // falls back to it — but with no provider callback supplied it cannot
+    // deliver, so the honest answer is still false.
+    assert.equal(result.delivered, false);
+  } finally {
+    await new Promise((resolve) => receiver.close(resolve));
+    for (const key of [
+      'EMAILJS_SERVICE_ID', 'EMAILJS_TEMPLATE_ID', 'EMAILJS_PUBLIC_KEY', 'EMAILJS_API_URL',
+    ]) delete process.env[key];
+  }
+});

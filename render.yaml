@@ -32,6 +32,17 @@ services:
         sync: false
       - key: PUBLIC_ORIGIN
         sync: false
+      # EmailJS (server-side only — never reaches the browser)
+      - key: EMAILJS_SERVICE_ID
+        sync: false
+      - key: EMAILJS_TEMPLATE_ID
+        sync: false
+      - key: EMAILJS_PUBLIC_KEY
+        sync: false
+      - key: EMAILJS_PRIVATE_KEY
+        sync: false
+      - key: EMAILJS_TEMPLATE_VERIFICATION
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
