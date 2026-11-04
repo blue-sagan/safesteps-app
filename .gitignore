@@ -1,0 +1,41 @@
+# ---- Secrets: never commit real credentials ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+server/.env
+server/*.db
+server/*.db-wal
+server/*.db-shm
+.env.local
+.env.production
+
+# ---- Node ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- Build / test artefacts ----
+coverage/
+dist/
+build/
+out/
+*.log
+*.tsbuildinfo
+.nyc_output/
+playwright-report/
+test-results/
+
+# ---- Editor / OS ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ---- Security tooling output ----
+audit-report.json
+security-report.json

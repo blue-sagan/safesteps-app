@@ -1,6 +1,6 @@
 // SafeSteps Service Worker
 // Bump this on every deploy so old caches get cleared out automatically.
-const CACHE_VERSION = 'v42';
+const CACHE_VERSION = 'v43';
 const CACHE_NAME = `safesteps-${CACHE_VERSION}`;
 
 // Core app shell — everything needed to run fully offline, including the
@@ -9,6 +9,7 @@ const CACHE_NAME = `safesteps-${CACHE_VERSION}`;
 const APP_SHELL = [
   './index.html',
   './manifest.json',
+  './assets/security.js',
   './assets/brand-logo.png',
   './assets/about-poster.jpg',
   './icons/icon-72.png',
@@ -94,10 +95,23 @@ self.addEventListener('fetch', event => {
   // Only handle GET requests — POSTs / other methods just pass through.
   if (req.method !== 'GET') return;
 
+  const url = new URL(req.url);
+
+  // SECURITY: never cache the API, and never serve it from cache.
+  // /api/auth/me and /api/auth/refresh return private, cookie-authenticated
+  // data; caching them would let a later user of the same device read the
+  // previous user's profile out of the Cache Storage API.
+  if (url.origin === self.location.origin && (url.pathname === '/api' || url.pathname.startsWith('/api/'))) {
+    return;
+  }
+  // Same rule for anything outside our origin: let the browser handle it.
+  if (url.origin !== self.location.origin && !/\.(png|jpe?g|webp|css|js|woff2?)$/i.test(url.pathname)) {
+    return;
+  }
+
   const isNavigation = req.mode === 'navigate' ||
     (req.method === 'GET' && req.headers.get('accept')?.includes('text/html'));
 
-  const url = new URL(req.url);
   const isDynamicData = DYNAMIC_DATA_FILES.some(f => url.pathname.endsWith(f.replace('./', '/')));
 
   if (isNavigation) {

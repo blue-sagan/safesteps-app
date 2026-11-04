@@ -819,15 +819,21 @@
 
       <div style="margin-bottom:12px;">
         <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Create Password:</label>
-        <input id="onbPassword" type="password" placeholder="At least 6 characters" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+        <input id="onbPassword" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+      </div>
+
+      <!-- Honeypot: hidden from humans, irresistible to form-scraping bots. -->
+      <div aria-hidden="true" style="position:absolute; left:-9999px; top:-9999px; height:0; overflow:hidden;">
+        <label for="onbWebsite">Website</label>
+        <input id="onbWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
       </div>
 
       <div style="margin-bottom:16px; background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span style="font-size:12px; font-weight:700; color:var(--teal);">🛡️ Security CAPTCHA Check:</span>
-          <b style="font-size:14.5px; color:var(--text); letter-spacing:1px;" id="onbCaptchaChallenge">7 + 4 = ?</b>
+          <span style="font-size:12px; font-weight:700; color:var(--teal);">🛡️ Automated-abuse protection:</span>
+          <b style="font-size:12.5px; color:var(--text);" id="onbCaptchaChallenge">Ready</b>
         </div>
-        <input id="onbCaptchaInput" type="number" placeholder="Solve math problem (e.g. 11)" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px;">
+        <p style="font-size:11.5px; color:var(--text-dim); margin:0; line-height:1.5;">Sign-up, sign-in and verification are rate-limited and bot-checked by the SafeSteps server — no puzzle to solve.</p>
       </div>
 
       <button class="btn-teal" style="width:100%; padding:15px; font-size:15.5px; font-weight:800; border-radius:12px;" onclick="submitAccountForm(true)">Create Account &amp; Send Code →</button>
@@ -842,11 +848,11 @@
           <span style="font-size:11.5px; color:#00A344; font-weight:700;">Sender: safestepske@gmail.com</span>
         </div>
       </div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:14px; line-height:1.5;">We have sent a system-generated 4-digit code and a copy of your saved account information to <b id="onbVerifyEmailLabel" style="color:var(--text);">your email</b>. Please enter the code below to verify your account.</p>
+      <p style="font-size:13px; color:var(--text-dim); margin-bottom:14px; line-height:1.5;">The SafeSteps server has emailed an 8-digit verification code to <b id="onbVerifyEmailLabel" style="color:var(--text);">your email</b>. It expires in 15 minutes and can be used once. Your password is never stored on this device.</p>
 
       <div style="margin-bottom:16px;">
-        <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:6px;">4-Digit Verification Code:</label>
-        <input id="onbVerifyCodeInput" type="text" maxlength="4" placeholder="e.g. 4829" style="width:100%; padding:14px; border:2px solid var(--teal); background:var(--card2); border-radius:12px; font-size:22px; font-weight:800; letter-spacing:0.3em; text-align:center; color:var(--text);" onkeydown="if(event.key==='Enter') verifySubmittedCode(true)">
+        <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:6px;">8-Digit Verification Code:</label>
+        <input id="onbVerifyCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="e.g. 48291573" style="width:100%; padding:14px; border:2px solid var(--teal); background:var(--card2); border-radius:12px; font-size:22px; font-weight:800; letter-spacing:0.3em; text-align:center; color:var(--text);" onkeydown="if(event.key==='Enter') verifySubmittedCode(true)">
       </div>
 
       <button class="btn-teal" style="width:100%; padding:15px; font-size:16px; font-weight:800; border-radius:12px; margin-bottom:10px;" onclick="verifySubmittedCode(true)">✅ Verify Code &amp; Enter App</button>
@@ -933,15 +939,21 @@
 
           <div style="margin-bottom:12px;">
             <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Create Password:</label>
-            <input id="accPassword" type="password" placeholder="At least 6 characters" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+            <input id="accPassword" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+          </div>
+
+          <!-- Honeypot: hidden from humans, irresistible to form-scraping bots. -->
+          <div aria-hidden="true" style="position:absolute; left:-9999px; top:-9999px; height:0; overflow:hidden;">
+            <label for="accWebsite">Website</label>
+            <input id="accWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
           </div>
 
           <div style="margin-bottom:16px; background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <span style="font-size:12px; font-weight:700; color:var(--teal);">🛡️ Security CAPTCHA Check:</span>
-              <b style="font-size:14.5px; color:var(--text); letter-spacing:1px;" id="accCaptchaChallenge">8 + 3 = ?</b>
+              <span style="font-size:12px; font-weight:700; color:var(--teal);">🛡️ Automated-abuse protection:</span>
+              <b style="font-size:12.5px; color:var(--text);" id="accCaptchaChallenge">Ready</b>
             </div>
-            <input id="accCaptchaInput" type="number" placeholder="Solve math problem (e.g. 11)" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px;">
+            <p style="font-size:11.5px; color:var(--text-dim); margin:0; line-height:1.5;">Sign-up, sign-in and verification are rate-limited and bot-checked by the SafeSteps server — no puzzle to solve.</p>
           </div>
 
           <button class="btn-teal" style="width:100%; padding:15px; font-size:15.5px; font-weight:800; border-radius:12px;" onclick="submitAccountForm(false)">Create Account &amp; Send Verification Code →</button>
@@ -952,11 +964,11 @@
       <div id="accountVerifyView" style="display:none;">
         <div class="google-account-card" style="border-left:4px solid #F2913B;">
           <h3 style="font-size:16px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:8px;"><span>✉️</span> Verification of the Email</h3>
-          <p style="font-size:13px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">We have sent a system-generated 4-digit code and a copy of your saved account information to <b id="accVerifyEmailLabel" style="color:var(--text);">your email</b> from <b>safestepske@gmail.com</b>. Please enter the 4-digit code below to verify your account.</p>
+          <p style="font-size:13px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">The SafeSteps server has emailed an 8-digit code to <b id="accVerifyEmailLabel" style="color:var(--text);">your email</b>. It expires in 15 minutes, allows five attempts, and is single-use. Your password is never stored on this device.</p>
 
           <div style="margin-bottom:18px;">
-            <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:6px;">Enter 4-Digit System Verification Code:</label>
-            <input id="accVerifyCodeInput" type="text" maxlength="4" placeholder="e.g. 4829" style="width:100%; padding:14px; border:2px solid var(--teal); background:var(--card2); border-radius:12px; font-size:24px; font-weight:800; letter-spacing:0.35em; text-align:center; color:var(--text);" onkeydown="if(event.key==='Enter') verifySubmittedCode(false)">
+            <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:6px;">Enter 8-Digit Verification Code:</label>
+            <input id="accVerifyCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="e.g. 48291573" style="width:100%; padding:14px; border:2px solid var(--teal); background:var(--card2); border-radius:12px; font-size:24px; font-weight:800; letter-spacing:0.35em; text-align:center; color:var(--text);" onkeydown="if(event.key==='Enter') verifySubmittedCode(false)">
           </div>
 
           <button class="btn-teal" style="width:100%; padding:15px; font-size:16px; font-weight:800; border-radius:12px; margin-bottom:12px;" onclick="verifySubmittedCode(false)">✅ Verify Account &amp; Activate Vault</button>
@@ -965,6 +977,24 @@
             <button onclick="resendAccountCode(false)" style="background:none; border:none; color:var(--teal); font-weight:700; cursor:pointer;">🔄 Resend Code via safestepske@gmail.com</button>
             <button onclick="editSignUpEmail(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer;">✏️ Change Email Address</button>
           </div>
+        </div>
+      </div>
+
+      <!-- VIEW 0: SIGN IN TO AN EXISTING SERVER-BACKED ACCOUNT -->
+      <div id="accountSignInView" style="display:none; margin-bottom:16px;">
+        <div class="google-account-card" style="border-left:4px solid #2E7BF6;">
+          <h3 style="font-size:16px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:8px;"><span>🔑</span> Already have a SafeSteps account?</h3>
+          <p style="font-size:13px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Sign in to sync your badges and encrypted vault across devices. Sign-in is rate-limited and protected against automated guessing by the SafeSteps server.</p>
+          <div style="margin-bottom:12px;">
+            <label for="signInEmail" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Email Address:</label>
+            <input id="signInEmail" type="email" autocomplete="username" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+          </div>
+          <div style="margin-bottom:16px;">
+            <label for="signInPassword" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Password:</label>
+            <input id="signInPassword" type="password" autocomplete="current-password" placeholder="Your password" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);" onkeydown="if(event.key==='Enter') signInToSafeStepsAccount()">
+          </div>
+          <button class="btn-teal" style="width:100%; padding:15px; font-size:15.5px; font-weight:800; border-radius:12px;" onclick="signInToSafeStepsAccount()">Sign In Securely →</button>
+          <p style="font-size:11.5px; color:var(--text-dim); margin:10px 0 0; line-height:1.5;">Your password is sent over TLS to the SafeSteps server and hashed there. It is never stored in this browser.</p>
         </div>
       </div>
 
@@ -1015,16 +1045,16 @@
       <div class="google-account-card" style="border-left:4px solid #F2913B;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
           <div>
-            <b style="font-size:15px; display:block; color:var(--text);">📧 System Email Gateway (`safestepske@gmail.com`)</b>
-            <span style="font-size:12px; color:var(--text-dim); display:block;">Automated verification code &amp; profile dispatch engine</span>
+            <b style="font-size:15px; display:block; color:var(--text);">📧 Server-side notification gateway</b>
+            <span style="font-size:12px; color:var(--text-dim); display:block;">Verification codes &amp; receipts are issued by the SafeSteps server</span>
           </div>
           <span style="font-size:22px;">⚡</span>
         </div>
-        <p style="font-size:12.5px; color:var(--text-dim); line-height:1.45; margin:0 0 14px;">All verification codes, saved account profile reports, and whistleblower receipts are generated directly by <b>safestepske@gmail.com</b> and sent to the user's registered email address.</p>
-        
+        <p style="font-size:12.5px; color:var(--text-dim); line-height:1.45; margin:0 0 14px;">Verification codes are generated on the <b>SafeSteps server</b> (never in this browser), stored only as a keyed fingerprint, and emailed to your registered address. Mail credentials live on the server, so this page cannot send email as SafeSteps and your password is never kept here.</p>
+
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn-teal" style="flex:1; padding:11px; font-size:13px; font-weight:700;" onclick="openSystemEmailLogModal()">📥 View Dispatched Emails Log</button>
-          <button class="btn-teal" style="flex:1; padding:11px; font-size:13px; font-weight:700; background:var(--card2); color:var(--text); border:1px solid var(--border);" onclick="testSendVerificationEmail()">⚡ Send Test Verification Code Now</button>
+          <button class="btn-teal" style="flex:1; padding:11px; font-size:13px; font-weight:700;" onclick="openSystemEmailLogModal()">📥 View Local Receipt Log</button>
+          <button class="btn-teal" style="flex:1; padding:11px; font-size:13px; font-weight:700; background:var(--card2); color:var(--text); border:1px solid var(--border);" onclick="requestNewVerificationCode()">⚡ Send Verification Code</button>
         </div>
       </div>
     </section>
@@ -2724,12 +2754,12 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="assets/security.js"></script>
 <script>
 /* ---------------- SECURITY: HTML ESCAPING ----------------
    SafeSteps renders a lot of user-typed and device-to-device "synced" text
@@ -3030,11 +3060,27 @@ function generateSyncCode(){
   const payload = {v:1, app:"safesteps", id: profile.id, name: profile.name, exportedAt: new Date().toISOString(), data};
   const code = encodeSyncPayload(payload);
   const resultEl = document.getElementById("syncExportResult");
+  // Build the nodes rather than interpolating the code into HTML: a share code
+  // is base64 of user-controlled JSON, and dropping it inside a quoted inline
+  // handler would let `'` or `</textarea>` escape into markup.
   resultEl.innerHTML = `
-    <textarea class="report-note" rows="3" readonly style="font-size:10.5px; font-family:monospace; margin-bottom:8px;" onclick="this.select()">${code}</textarea>
-    <button class="fa-more-btn" type="button" onclick="navigator.clipboard.writeText('${code}').then(()=>showToast('Share code copied')).catch(()=>showToast('Could not copy — select the text manually'))">📋 Copy Code</button>
+    <textarea class="report-note" id="syncExportCodeArea" rows="3" readonly style="font-size:10.5px; font-family:monospace; margin-bottom:8px;"></textarea>
+    <button class="fa-more-btn" type="button" id="syncCopyCodeBtn">📋 Copy Code</button>
     <div id="syncQrHolder" style="margin-top:10px; display:flex; justify-content:center;"></div>
   `;
+  const codeArea = document.getElementById("syncExportCodeArea");
+  if(codeArea){
+    codeArea.value = code;
+    codeArea.onclick = function(){ this.select(); };
+  }
+  const copyBtn = document.getElementById("syncCopyCodeBtn");
+  if(copyBtn){
+    copyBtn.onclick = function(){
+      navigator.clipboard.writeText(code)
+        .then(()=>showToast("Share code copied"))
+        .catch(()=>showToast("Could not copy — select the text manually"));
+    };
+  }
   const qrHolder = document.getElementById("syncQrHolder");
   if(typeof QRCode !== "undefined"){
     try{
@@ -3046,6 +3092,26 @@ function generateSyncCode(){
     qrHolder.innerHTML = `<div style="font-size:11px; color:var(--text-dim);">QR image needs an internet connection the first time (to load the QR library) — the copyable code above always works offline.</div>`;
   }
 }
+/**
+ * Defensive normalisation of a profile snapshot received from another device.
+ * A share code is untrusted input: it is only ever copied by hand or scanned
+ * from a screen, so anyone can craft one. Every string is trimmed and stripped
+ * of markup characters, and the object is bounded so it cannot be used to
+ * stuff enormous values into localStorage.
+ */
+function sanitizeSharedProfileData(data){
+  const out = {};
+  const clean = (value) => String(value).slice(0, 400).replace(/[<>]/g, "");
+  Object.keys(data || {}).slice(0, 60).forEach(function(key){
+    const value = data[key];
+    if(typeof value === "string") out[key] = clean(value);
+    else if(typeof value === "number" || typeof value === "boolean") out[key] = value;
+    else if(Array.isArray(value)) out[key] = value.slice(0, 50).map(v => (typeof v === "string" ? clean(v) : (v && typeof v === "object" ? { cat: clean(v.cat || ""), time: clean(v.time || "") } : null))).filter(Boolean);
+    else if(value && typeof value === "object") out[key] = { name: clean(value.name || ""), ageGroup: clean(value.ageGroup || "") };
+  });
+  return out;
+}
+
 function importSyncCode(){
   const input = document.getElementById("syncImportInput");
   const status = document.getElementById("syncStatus");
@@ -3067,6 +3133,12 @@ function importSyncCode(){
     status.textContent = "⚠️ That doesn't look like a valid SafeSteps share code.";
     return;
   }
+  // Sanitise the untrusted payload shape before it can reach any renderer.
+  // (Previously name/description fields flowed into innerHTML unescaped, so a
+  // hostile share code was a stored-XSS primitive on the receiving device.)
+  payload.data = sanitizeSharedProfileData(payload.data);
+  payload.name = String(payload.name).replace(/[<>&"'`]/g, "");
+
   const existing = state.familyProfiles.find(p=>p.id===payload.id);
   if(existing || state.familyProfiles.length > 0){
     triggerSyncConflictResolution(payload, existing);
@@ -4410,10 +4482,10 @@ function renderLessons(){
     card.className = "lesson-card " + l.grad;
     card.innerHTML = `
       <div class="lesson-head">
-        <div class="l-left"><span class="lesson-ic">${l.ic}</span><span class="lesson-title">${l.title}</span></div>
+        <div class="l-left"><span class="lesson-ic">${escapeHtml(l.ic)}</span><span class="lesson-title">${escapeHtml(l.title)}</span></div>
         <span class="lesson-chev">▾</span>
       </div>
-      <div class="lesson-body">${l.body}<div style="margin-top:10px;"><button class="fa-more-btn listen-btn" type="button">🔊 Listen</button></div></div>`;
+      <div class="lesson-body">${escapeHtml(l.body)}<div style="margin-top:10px;"><button class="fa-more-btn listen-btn" type="button">🔊 Listen</button></div></div>`;
     card.onclick = ()=>{
       card.classList.toggle("open");
       if(!state.lessonsRead[i]){ state.lessonsRead[i]=true; state.lessonsReadAt[i]=new Date().toISOString(); persist(); renderBadgeIcons(); }
@@ -6795,59 +6867,41 @@ function generatePdfDoc(profileName){
   showToast(`PDF report downloaded for ${profileName}`);
 }
 
-/* ---------------- AUTO-EMAIL (EmailJS) ---------------- */
-// SETUP REQUIRED — this is what makes sending fully automatic (no email app popup):
-//  1. Create a free account at https://www.emailjs.com (free tier: 200 emails/month).
-//  2. Add an "Email Service" and connect it to Safestepske@gmail.com — this gives you a SERVICE_ID.
-//  3. Create an "Email Template" with variables {{subject}} and {{message}} in the body — this gives you a TEMPLATE_ID.
-//  4. Copy your "Public Key" from Account > General.
-//  5. Paste all three below, replacing the placeholder strings. That's it — no server needed.
-// Until real values are pasted in, the app safely falls back to opening the person's own
-// email app instead of failing silently or throwing errors.
-const EMAILJS_PUBLIC_KEY  = "01OBU4OvvMDAlH5sF";
-const EMAILJS_SERVICE_ID  = "Safesteps";
-const EMAILJS_TEMPLATE_ID = "template_yh18avk";
+/* ---------------- OUTBOUND MAIL (server-side only) ----------------
+   The old build initialised EmailJS in the browser with a public key and a
+   service id, so anyone could read them and send mail as SafeSteps. Both are
+   gone: there is no mail credential in this file at all.
+
+   sendAutoEmail() now posts to the SafeSteps server, which owns the SMTP
+   credentials, applies rate limits and queues undeliverable messages. If the
+   network is unavailable the message is kept locally and retried later.
+   Anything genuinely sensitive should be reported through the integrity portal
+   (encrypted client-side before upload) rather than emailed. */
 const FEEDBACK_EMAIL = "safestepske@gmail.com";
-
-
-let emailjsReady = false;
-function attemptInit(retryCount){
-  if(typeof emailjs !== "undefined" && EMAILJS_PUBLIC_KEY && !EMAILJS_PUBLIC_KEY.startsWith("YOUR_")){
-    try{ emailjs.init({publicKey: EMAILJS_PUBLIC_KEY}); emailjsReady = true; console.log("EmailJS initialized successfully."); }
-    catch(err){ emailjsReady = false; console.error("EmailJS init error:", err); }
-  } else {
-    emailjsReady = false;
-    if(retryCount < 2){ setTimeout(()=> attemptInit(retryCount + 1), 800); }
-  }
-}
+let emailjsReady = false;      // retained as a feature flag for older callers
+function attemptInit(){ emailjsReady = false; }
 attemptInit(0);
 
-// Sends silently in the background via EmailJS when configured; otherwise falls back
-// to a pre-filled mailto link so nothing is ever lost, just less automatic.
-// If we're offline (or the send fails), the message is queued and a
-// Background Sync is registered so the browser retries automatically the
-// moment connectivity returns — no need to reopen the app.
 async function sendAutoEmail(subject, message, replyTo){
-  if(emailjsReady){
-    if(!navigator.onLine){
-      queuePendingSync(subject, message, replyTo);
-      return true;
-    }
-    try{
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        to_email: FEEDBACK_EMAIL, subject, message, reply_to: replyTo || FEEDBACK_EMAIL
-      });
-      return true;
-    }catch(err){
-      console.error("EmailJS send failed, queueing for Background Sync:", err);
-      queuePendingSync(subject, message, replyTo);
-      return true;
-    }
+  if(!navigator.onLine){
+    queuePendingSync(subject, message, replyTo);
+    return true;
   }
-  const mailSubject = encodeURIComponent(subject);
-  const mailBody = encodeURIComponent(message);
-  window.location.href = `mailto:${FEEDBACK_EMAIL}?subject=${mailSubject}&body=${mailBody}`;
-  return false;
+  try{
+    await SS.api("/api/feedback", {
+      method: "POST",
+      body: {
+        subject: String(subject || "").slice(0, 120),
+        message: String(message || "").slice(0, 4000),
+        replyTo: replyTo || null
+      }
+    });
+    return true;
+  }catch(err){
+    console.warn("Mail handoff failed, queueing locally:", err && err.message);
+    queuePendingSync(subject, message, replyTo);
+    return true;
+  }
 }
 
 /* ---------------- BACKGROUND SYNC (queued emails) ---------------- */
@@ -6860,12 +6914,17 @@ function queuePendingSync(subject, message, replyTo){
   }
 }
 async function flushPendingSync(){
-  if(!Array.isArray(state.pendingSync) || !state.pendingSync.length || !emailjsReady) return;
+  if(!Array.isArray(state.pendingSync) || !state.pendingSync.length) return;
   const remaining = [];
   for(const item of state.pendingSync){
     try{
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        to_email: FEEDBACK_EMAIL, subject: item.subject, message: item.message, reply_to: item.replyTo || FEEDBACK_EMAIL
+      await SS.api("/api/feedback", {
+        method: "POST",
+        body: {
+          subject: String(item.subject || "").slice(0, 120),
+          message: String(item.message || "").slice(0, 4000),
+          replyTo: item.replyTo || null
+        }
       });
     }catch(err){
       remaining.push(item);
@@ -6874,7 +6933,7 @@ async function flushPendingSync(){
   const sent = state.pendingSync.length - remaining.length;
   state.pendingSync = remaining;
   persist();
-  if(sent > 0) showToast(`📤 Sent ${sent} queued report${sent>1?"s":""} now that you're back online`);
+  if(sent > 0) showToast(`📤 Sent ${sent} queued message${sent>1?"s":""} now that you're back online`);
 }
 // Fired when the service worker's Cache-then-Network strategy notices a
 // dynamic data file (hotspots, lessons, traffic, NTSA stats, routing graph)
@@ -8980,362 +9039,255 @@ function maybeNameActiveProfileFromAccount(user){
   renderSyncExportSelect();
 }
 const maybeNameActiveProfileFromGoogle = maybeNameActiveProfileFromAccount;
-let accountSmtpWebhookUrl = localStorage.getItem("safesteps_email_webhook") || "";
-let emailjsGatewayConfig = safeJsonParse(localStorage.getItem("safesteps_emailjs_config"), null) || {publicKey:"01OBU4OvvMDAlH5sF",serviceId:"Safesteps",templateId:"template_yh18avk"};
-if(!emailjsGatewayConfig.publicKey) emailjsGatewayConfig.publicKey = "01OBU4OvvMDAlH5sF";
-if(!emailjsGatewayConfig.serviceId) emailjsGatewayConfig.serviceId = "Safesteps";
-if(!emailjsGatewayConfig.templateId) emailjsGatewayConfig.templateId = "template_yh18avk";
-let activeDispatchRecord = null;
-let pendingVerificationCode = localStorage.getItem("safesteps_pending_code") || null;
+
+/* ---------------- SERVER-VERIFIED ACCOUNT ENGINE ----------------
+   SECURITY NOTE
+   The previous build generated the "verification code" in this file, stored it
+   in localStorage next to the password (btoa), and printed it in a toast. All
+   three of those are removals, not mitigations: a code the client can read is
+   not a second factor, and btoa() is an encoding, never a password hash.
+
+   Everything below delegates to the SafeSteps server:
+     • the code is generated with crypto.randomInt on the server and only an
+       HMAC fingerprint is stored,
+     • the password goes to the auth service over TLS and is bcrypt-hashed
+       there — it is never stored, hashed or echoed by this page,
+     • the session lives in an HttpOnly cookie this page cannot read,
+     • sign-in / sign-up / verification are rate-limited server-side and gated
+       behind a proof-of-work bot check.
+   ------------------------------------------------------------------ */
+
+const PENDING_EMAIL_KEY = "safesteps_pending_email";
+// Only the *pending* address is remembered — never a code, never a password.
+let pendingAccountData = safeJsonParse(localStorage.getItem(PENDING_EMAIL_KEY), null);
+let pendingVerificationCode = pendingAccountData ? true : null;
 let verifyCodeAttempts = 0;
-let pendingAccountData = safeJsonParse(localStorage.getItem("safesteps_pending_account"), null);
-let activeCaptchaAnswer = 11;
+let activeCaptchaAnswer = 11;   // legacy shim, see generateNewCaptchaChallenge()
+let activeDispatchRecord = null;
+
+// Purge credentials left behind by older builds of this app.
+try{
+  localStorage.removeItem("safesteps_pending_code");
+  localStorage.removeItem("safesteps_pending_account");
+  localStorage.removeItem("safesteps_emailjs_config");
+  localStorage.removeItem("safesteps_email_webhook");
+  localStorage.removeItem("safesteps_at_api_key");
+  localStorage.removeItem("safesteps_at_username");
+  // Drop any password material written by an older build of this app.
+  if(state && state.userAccount && state.userAccount.passwordHash){
+    delete state.userAccount.passwordHash;
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+}catch(e){}
 
 function generateNewCaptchaChallenge(){
-  const n1 = Math.floor(2 + Math.random() * 8);
-  const n2 = Math.floor(1 + Math.random() * 9);
-  activeCaptchaAnswer = n1 + n2;
-  const lblOnb = document.getElementById("onbCaptchaChallenge");
-  const lblAcc = document.getElementById("accCaptchaChallenge");
-  if(lblOnb) lblOnb.textContent = `${n1} + ${n2} = ?`;
-  if(lblAcc) lblAcc.textContent = `${n1} + ${n2} = ?`;
+  // The arithmetic CAPTCHA was client-side only (the answer shipped in the
+  // page), so it stopped no bot. Server-side rate limiting + proof-of-work
+  // replaced it; this now just reflects readiness in the UI.
+  ["onbCaptchaChallenge","accCaptchaChallenge"].forEach(function(id){
+    const lbl = document.getElementById(id);
+    if(lbl) lbl.textContent = "Ready";
+  });
 }
 
-function checkRateLimit(){
-  const now = Date.now();
-  let attempts = safeJsonParse(localStorage.getItem("safesteps_verify_attempts"), []);
-  if(!Array.isArray(attempts)) attempts = [];
-  attempts = attempts.filter(t => now - t < 600000);
-  if(attempts.length >= 3){
-    return false;
-  }
-  attempts.push(now);
-  localStorage.setItem("safesteps_verify_attempts", JSON.stringify(attempts));
-  return true;
-}
+/* Legacy shims: these operated entirely in the browser and no longer exist. */
+function checkRateLimit(){ return true; }
+async function sendSmsVerificationCodeViaAfricasTalking(){ /* server-side only */ }
 
-async function sendSmsVerificationCodeViaAfricasTalking(phone, code){
-  const apiKey = localStorage.getItem("safesteps_at_api_key") || "";
-  const username = localStorage.getItem("safesteps_at_username") || "sandbox";
-  const message = `SafeSteps Kenya Verification Code: ${code}. Do not share this PIN with anyone.`;
-  showToast(`📱 SMS verification PIN dispatched to ${phone} via Africa's Talking Gateway (${code})`);
-  if(!apiKey) return;
-  try{
-    await fetch("https://api.africastalking.com/version1/messaging", {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
-        "apiKey": apiKey
-      },
-      body: new URLSearchParams({ username, to: phone, message })
-    });
-  }catch(e){ console.log("AT SMS note:", e); }
-}
-
-function submitAccountForm(isOnboarding){
-  if(!checkRateLimit()){
-    showToast("⏳ Rate limit exceeded (Max 3 codes per 10 mins). Please check your email or wait a moment.");
-    return;
-  }
-
-  const nameInput = isOnboarding ? document.getElementById("onbFullName") : document.getElementById("accFullName");
+async function submitAccountForm(isOnboarding){
+  const nameInput  = isOnboarding ? document.getElementById("onbFullName") : document.getElementById("accFullName");
   const emailInput = isOnboarding ? document.getElementById("onbEmail") : document.getElementById("accEmail");
   const phoneInput = isOnboarding ? document.getElementById("onbPhone") : document.getElementById("accPhone");
-  const passInput = isOnboarding ? document.getElementById("onbPassword") : document.getElementById("accPassword");
-  const captchaInput = isOnboarding ? document.getElementById("onbCaptchaInput") : document.getElementById("accCaptchaInput");
+  const passInput  = isOnboarding ? document.getElementById("onbPassword") : document.getElementById("accPassword");
+  const trapInput  = isOnboarding ? document.getElementById("onbWebsite") : document.getElementById("accWebsite");
 
-  const fullName = (nameInput ? nameInput.value : "").trim();
-  const email = (emailInput ? emailInput.value : "").trim();
-  const phone = (phoneInput ? phoneInput.value : "").trim();
-  const password = (passInput ? passInput.value : "").trim();
-  const userCaptcha = parseInt(captchaInput ? captchaInput.value : "-1");
+  const fullName = SS.input.text(nameInput ? nameInput.value : "", { min: 2, max: 80 });
+  const email    = SS.input.email(emailInput ? emailInput.value : "");
+  const passwordCheck = SS.input.password(passInput ? passInput.value : "");
+  const phone    = phoneInput && phoneInput.value ? phoneInput.value.trim() : null;
 
-  if(!fullName || fullName.length < 2){
-    showToast("Please enter your full name (e.g. David Kamau)");
-    return;
-  }
-  if(!email || !email.includes('@') || !email.includes('.')){
-    showToast("Please enter a valid email address (e.g. david.kamau@gmail.com)");
-    return;
-  }
-  if(!password || password.length < 6){
-    showToast("Password must be at least 6 characters long");
-    return;
-  }
-  if(isNaN(userCaptcha) || userCaptcha !== activeCaptchaAnswer){
-    showToast("❌ Incorrect security CAPTCHA answer. Please solve the math problem to prove you are human.");
-    generateNewCaptchaChallenge();
-    return;
-  }
+  if(!fullName){ showToast("Please enter your full name (e.g. David Kamau)"); return; }
+  if(!email){ showToast("Please enter a valid email address (e.g. david.kamau@gmail.com)"); return; }
+  if(!passwordCheck.ok){ showToast(passwordCheck.message); return; }
 
-  const code = Math.floor(1000 + Math.random() * 9000).toString();
-  pendingVerificationCode = code;
-  verifyCodeAttempts = 0;
-  pendingAccountData = {
-    fullName: fullName,
-    email: email,
-    phone: phone || null,
-    passwordHash: btoa(password),
-    createdTs: new Date().toISOString(),
-    verified: false
-  };
+  const btn = document.activeElement;
+  if(btn && btn.tagName === "BUTTON") btn.disabled = true;
 
-  localStorage.setItem("safesteps_pending_code", code);
-  localStorage.setItem("safesteps_pending_account", JSON.stringify(pendingAccountData));
+  try{
+    const bot = await SS.botProof();
+    await SS.session.register({
+      fullName: fullName,
+      email: email,
+      password: passwordCheck.value,
+      phone: phone || null,
+      website: trapInput ? trapInput.value : ""
+    }, bot);
 
-  sendSystemVerificationEmail(fullName, email, code, isOnboarding);
-  if(phone && (phone.startsWith("+254") || phone.startsWith("07") || phone.startsWith("01"))){
-    sendSmsVerificationCodeViaAfricasTalking(phone, code);
-  }
+    if(passInput) passInput.value = "";   // clear the plaintext from the DOM
 
-  if(isOnboarding){
-    const signUpCard = document.getElementById("onbSignUpCard");
-    const verifyCard = document.getElementById("onbVerifyCard");
-    const emailLbl = document.getElementById("onbVerifyEmailLabel");
-    if(signUpCard) signUpCard.style.display = "none";
-    if(verifyCard) verifyCard.style.display = "block";
-    if(emailLbl) emailLbl.textContent = email;
-  } else {
+    pendingAccountData = { email: email, fullName: fullName };
+    pendingVerificationCode = true;
+    localStorage.setItem(PENDING_EMAIL_KEY, email);
+
+    if(isOnboarding){
+      const signUpCard = document.getElementById("onbSignUpCard");
+      const verifyCard = document.getElementById("onbVerifyCard");
+      const emailLbl   = document.getElementById("onbVerifyEmailLabel");
+      if(signUpCard) signUpCard.style.display = "none";
+      if(verifyCard) verifyCard.style.display = "block";
+      if(emailLbl) emailLbl.textContent = email;
+    }
     renderAccountPage();
+    showToast("📧 Verification code sent to " + email + ". Check your inbox.");
+  }catch(err){
+    showToast("⚠️ " + (err && err.message ? err.message : "Could not create the account. Please try again."));
+    SS.resetBotChallenge();
+  }finally{
+    if(btn && btn.tagName === "BUTTON") btn.disabled = false;
   }
-}
-
-async function sendSystemVerificationEmail(fullName, email, code, isOnboarding){
-  if(!email || !code) return;
-  const nowStr = new Date().toLocaleString("en-KE", { timeZone: "Africa/Nairobi", dateStyle: "full", timeStyle: "medium" });
-  const deviceId = "SAFESTEPS-KE-" + Math.random().toString(36).substring(2, 9).toUpperCase();
-  
-  const subject = `🔐 Your SafeSteps Verification Code: ${code}`;
-  const message = `Hello ${fullName},
-
-This is an automated verification notification from the SafeSteps Kenya System (safestepske@gmail.com).
-
-=========================================
-YOUR 4-DIGIT VERIFICATION CODE: [ ${code} ]
-=========================================
-
-Please enter this 4-digit code on the verification screen to activate your SafeSteps Account.
-
-=========================================
-SAVED ACCOUNT INFORMATION RECEIPT
-=========================================
-• Full Name: ${fullName}
-• Registered Email: ${email}
-• Account Status: Pending Verification
-• Registration Timestamp: ${nowStr} (EAT)
-• Security Device ID: ${deviceId}
-• Encrypted Vault: Project 360° Shield (Active)
-• Sender Service: safestepske@gmail.com
-
-Once verified, your SafeSteps account will securely lock and encrypt your road safety streaks, Scout badges, and route checklists directly on this device.
-
-If you did not request this verification code, please disregard this email or reply directly to safestepske@gmail.com.
-
-Stay safe on every journey!
------------------------------------------
-SafeSteps Kenya System
-Road Safety for Everyone, Every Day.
-Official Contact: safestepske@gmail.com
-=========================================`;
-
-  if(!state.systemEmailLog) state.systemEmailLog = [];
-  const emailRecord = {
-    id: "VER-" + Date.now().toString().slice(-6),
-    to: email,
-    from: "safestepske@gmail.com",
-    fromName: "SafeSteps Kenya System",
-    subject: subject,
-    body: message,
-    timestamp: nowStr,
-    status: "Dispatched (Verification Code: " + code + ")"
-  };
-  state.systemEmailLog.unshift(emailRecord);
-  persist();
-
-  let dispatchedVia = "SafeSteps System Engine & Email Gateway";
-  let liveSuccess = false;
-  
-  const pubKey = emailjsGatewayConfig.publicKey || (typeof EMAILJS_PUBLIC_KEY !== "undefined" && !EMAILJS_PUBLIC_KEY.startsWith("YOUR_") ? EMAILJS_PUBLIC_KEY : null);
-  const srvId = emailjsGatewayConfig.serviceId || (typeof EMAILJS_SERVICE_ID !== "undefined" && !EMAILJS_SERVICE_ID.startsWith("YOUR_") ? EMAILJS_SERVICE_ID : null);
-  const tplId = emailjsGatewayConfig.templateId || (typeof EMAILJS_TEMPLATE_ID !== "undefined" && !EMAILJS_TEMPLATE_ID.startsWith("YOUR_") ? EMAILJS_TEMPLATE_ID : null);
-
-  if(pubKey && srvId && tplId && typeof emailjs !== "undefined"){
-    try{
-      if(!emailjsReady) emailjs.init({ publicKey: pubKey });
-      await emailjs.send(srvId, tplId, {
-        to_email: email,
-        to_name: fullName,
-        from_email: "safestepske@gmail.com",
-        from_name: "SafeSteps Kenya System",
-        subject: subject,
-        message: message,
-        reply_to: "safestepske@gmail.com"
-      });
-      liveSuccess = true;
-      dispatchedVia = "EmailJS Live REST Gateway (" + srvId + ")";
-    }catch(e){
-      console.error("EmailJS live verification send failed:", e);
-    }
-  }
-
-  if(!liveSuccess && accountSmtpWebhookUrl){
-    try{
-      await fetch(accountSmtpWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: email,
-          from: "safestepske@gmail.com",
-          fromName: "SafeSteps Kenya System",
-          subject: subject,
-          message: message
-        })
-      });
-      liveSuccess = true;
-      dispatchedVia = "Custom Webhook Endpoint (" + accountSmtpWebhookUrl + ")";
-    }catch(e){
-      console.error("Webhook send failed:", e);
-    }
-  }
-
-  showToast("🔐 Verification code sent to " + email + " from safestepske@gmail.com! Please check your email inbox.");
 }
 
 function verifySubmittedCode(isOnboarding){
   const inputEl = isOnboarding ? document.getElementById("onbVerifyCodeInput") : document.getElementById("accVerifyCodeInput");
-  const inputCode = (inputEl ? inputEl.value : "").trim();
+  const code  = SS.input.code(inputEl ? inputEl.value : "");
+  const email = (pendingAccountData && pendingAccountData.email) || localStorage.getItem(PENDING_EMAIL_KEY);
 
-  if(!inputCode || inputCode.length !== 4){
-    showToast("Please enter the 4-digit verification code sent to your email.");
-    return;
-  }
+  if(!code){ showToast("Enter the 8-digit code from your email."); return; }
+  if(!email){ showToast("Please start again — we do not have your email address."); return; }
 
-  if(inputCode !== pendingVerificationCode){
-    verifyCodeAttempts = (verifyCodeAttempts || 0) + 1;
-    if(verifyCodeAttempts >= 5){
-      pendingVerificationCode = null;
-      localStorage.removeItem("safesteps_pending_code");
-      showToast("🔒 Security Lockout: Too many incorrect code attempts (Max 5). Please request a new verification code.");
-      renderAccountPage();
-      return;
-    }
-    showToast("❌ Incorrect code (" + inputCode + "). Attempt " + verifyCodeAttempts + " of 5. Check your email from safestepske@gmail.com.");
-    return;
-  }
-
-  verifyCodeAttempts = 0;
-  const account = pendingAccountData || {
-    fullName: "Verified Member",
-    email: "user@example.com",
-    createdTs: new Date().toISOString()
-  };
-
-  state.userAccount = {
-    fullName: account.fullName,
-    email: account.email,
-    passwordHash: account.passwordHash || "",
-    createdTs: account.createdTs || new Date().toISOString(),
-    verified: true,
-    verifiedTs: new Date().toISOString()
-  };
-
-  state.cloudEmail = account.email;
-  state.googleDisplayName = account.fullName;
-  state.lastCloudBackup = Date.now();
-
-  localStorage.removeItem("safesteps_pending_code");
-  pendingVerificationCode = null;
-
-  if(!localStorage.getItem('safesteps_profile')){
-    localStorage.setItem('safesteps_profile', JSON.stringify({name: account.fullName, ageGroup:"child", created:new Date().toISOString()}));
-  }
-  persist();
-  maybeNameActiveProfileFromGoogle({displayName: account.fullName, email: account.email});
-  showCloudSyncActive();
-  renderAccountPage();
-  updateHeaderAccountBadge();
-
-  if(isOnboarding){
-    const loginScr = document.getElementById("loginScreen");
-    if(loginScr) loginScr.style.display = "none";
-  }
-
-  sendSystemVerifiedReceipt(account.fullName, account.email);
-  showToast("✅ Email verified! Welcome to SafeSteps, " + account.fullName + ".");
-}
-
-async function sendSystemVerifiedReceipt(fullName, email){
-  const nowStr = new Date().toLocaleString("en-KE", { timeZone: "Africa/Nairobi", dateStyle: "full", timeStyle: "medium" });
-  const subject = `🛡️ SafeSteps Account Verified & Saved Information Receipt`;
-  const message = `Hello ${fullName},
-
-Your email (${email}) has been verified successfully and your SafeSteps Account is now active.
-
-=========================================
-OFFICIAL SAVED INFORMATION & VAULT RECEIPT
-=========================================
-• Full Name: ${fullName}
-• Registered Email: ${email}
-• Verification Status: 100% Verified
-• Verification Timestamp: ${nowStr} (EAT)
-• Encrypted Storage: Project 360° Shield Vault
-• Automatic Cloud Sync: Enabled
-• Sender Service: safestepske@gmail.com
-
-All road safety badges, checklists, and whistleblower dossiers created on this device are now securely linked to your account.
-
-Stay safe on every journey!
------------------------------------------
-SafeSteps Kenya System
-Road Safety for Everyone, Every Day.
-Official Contact: safestepske@gmail.com
-=========================================`;
-
-  if(!state.systemEmailLog) state.systemEmailLog = [];
-  const emailRecord = {
-    id: "ACT-" + Date.now().toString().slice(-6),
-    to: email,
-    from: "safestepske@gmail.com",
-    fromName: "SafeSteps Kenya System",
-    subject: subject,
-    body: message,
-    timestamp: nowStr,
-    status: "Dispatched (Verified Account Info)"
-  };
-  state.systemEmailLog.unshift(emailRecord);
-  persist();
-
-  const srvId = emailjsGatewayConfig.serviceId || (typeof EMAILJS_SERVICE_ID !== "undefined" && !EMAILJS_SERVICE_ID.startsWith("YOUR_") ? EMAILJS_SERVICE_ID : null);
-  const tplId = emailjsGatewayConfig.templateId || (typeof EMAILJS_TEMPLATE_ID !== "undefined" && !EMAILJS_TEMPLATE_ID.startsWith("YOUR_") ? EMAILJS_TEMPLATE_ID : null);
-
-  if(srvId && tplId && typeof emailjs !== "undefined"){
+  (async function(){
     try{
-      await emailjs.send(srvId, tplId, {
-        to_email: email,
-        to_name: fullName,
-        from_email: "safestepske@gmail.com",
-        from_name: "SafeSteps Kenya System",
-        subject: subject,
-        message: message,
-        reply_to: "safestepske@gmail.com"
-      });
-    }catch(e){}
-  }
+      const bot = await SS.botProof();
+      await SS.session.verify(email, code, bot);
+      if(inputEl) inputEl.value = "";
+      pendingVerificationCode = null;
+      localStorage.removeItem(PENDING_EMAIL_KEY);
+      renderAccountPage();
+      showToast("✅ Email verified! Sign in to finish setting up your account.");
+    }catch(err){
+      showToast("⚠️ " + (err && err.message ? err.message : "That code could not be verified."));
+      SS.resetBotChallenge();
+    }
+  })();
 }
 
 function resendAccountCode(isOnboarding){
-  if(!pendingAccountData || !pendingVerificationCode){
+  const email = (pendingAccountData && pendingAccountData.email) || localStorage.getItem(PENDING_EMAIL_KEY);
+  if(!email){
     showToast("Please enter your name and email on the sign-up screen first.");
     if(isOnboarding){
-      const s = document.getElementById("onbSignUpCard");
-      const v = document.getElementById("onbVerifyCard");
-      if(s) s.style.display = "block";
-      if(v) v.style.display = "none";
+      const sc = document.getElementById("onbSignUpCard");
+      const vc = document.getElementById("onbVerifyCard");
+      if(sc) sc.style.display = "block";
+      if(vc) vc.style.display = "none";
     }
     return;
   }
-  sendSystemVerificationEmail(pendingAccountData.fullName, pendingAccountData.email, pendingVerificationCode, isOnboarding);
+  (async function(){
+    try{
+      const bot = await SS.botProof();
+      await SS.session.resend(email, bot);
+      showToast("📧 A new code is on its way to " + email + ".");
+    }catch(err){
+      showToast("⚠️ " + (err && err.message ? err.message : "Could not resend the code."));
+      SS.resetBotChallenge();
+    }
+  })();
+}
+
+/* ---------------- SIGN-IN ---------------- */
+async function signInToSafeStepsAccount(){
+  const emailEl = document.getElementById("signInEmail");
+  const passEl  = document.getElementById("signInPassword");
+  const email   = SS.input.email(emailEl ? emailEl.value : "");
+  const password = passEl ? passEl.value : "";
+
+  if(!email){ showToast("Enter the email address for your account."); return; }
+  if(!password){ showToast("Enter your password."); return; }
+
+  try{
+    const bot = await SS.botProof();
+    const result = await SS.session.login(email, password, bot);
+    if(passEl) passEl.value = "";
+
+    state.userAccount = {
+      fullName: result.user.fullName || email.split("@")[0],
+      email: result.user.email,
+      verified: Boolean(result.user.emailVerified),
+      createdTs: new Date().toISOString(),
+      verifiedTs: new Date().toISOString()
+    };
+    state.cloudEmail = result.user.email;
+    state.googleDisplayName = result.user.fullName || null;
+    state.cloudUid = result.user.id;
+    persist();
+    renderAccountPage();
+    updateHeaderAccountBadge();
+    showToast("✅ Signed in as " + result.user.email);
+    syncLocalVaultToServer(password);
+  }catch(err){
+    if(err && err.code === "email_unconfirmed"){
+      pendingAccountData = { email: email, fullName: null };
+      pendingVerificationCode = true;
+      localStorage.setItem(PENDING_EMAIL_KEY, email);
+      renderAccountPage();
+    }
+    showToast("⚠️ " + (err && err.message ? err.message : "Sign-in failed."));
+    SS.resetBotChallenge();
+  }
+}
+
+/* ---------------- ENCRYPTED VAULT SYNC ----------------
+   The account payload is encrypted on this device with a key derived from the
+   user's password (PBKDF2-SHA256, 310,000 iterations) before upload. The server
+   and database only ever receive ciphertext they cannot read. */
+async function syncLocalVaultToServer(password){
+  if(!password || !SS.crypto.available()) return;
+  try{
+    await SS.vault.save(password, {
+      version: 3,
+      savedAt: new Date().toISOString(),
+      badges: state.badges || [],
+      streak: state.streak || null,
+      lessonsRead: state.lessonsRead || {},
+      quizScores: state.quizScores || {},
+      familyProfiles: state.familyProfiles || [],
+      trustedContact: state.trustedContact || {},
+      medical: state.medical || {}
+    });
+  }catch(err){
+    console.warn("Vault sync deferred:", err && err.message);
+  }
+}
+
+/* ---------------- LOCALLY COMPOSED RECEIPTS ----------------
+   The app can no longer send email itself (there is no public mail key any
+   more). These helpers compose the same receipt text locally so the user can
+   read, print or download it; actual delivery is server-side only. */
+function sendSystemVerificationEmail(){
+  showToast("Verification codes are generated and emailed by the SafeSteps server.");
+}
+function sendSystemVerifiedReceipt(fullName, email){
+  const nowStr = new Date().toLocaleString("en-KE", { timeZone: "Africa/Nairobi", dateStyle: "full", timeStyle: "medium" });
+  const message = "Hello " + escapeHtml(fullName) + ",\n\n"
+    + "Your email (" + escapeHtml(email) + ") is verified and your SafeSteps account is active.\n\n"
+    + "• Verification timestamp: " + nowStr + " (EAT)\n"
+    + "• Storage: encrypted vault (AES-256-GCM, key derived on your device)\n"
+    + "• Session: HttpOnly, Secure, SameSite=Strict cookie\n\n"
+    + "This copy is generated locally. Your password is never stored on this device.\n\n"
+    + "— SafeSteps Kenya (Project 360° Shield)";
+  if(!state.systemEmailLog) state.systemEmailLog = [];
+  state.systemEmailLog.unshift({
+    id: "ACT-" + Date.now().toString().slice(-6),
+    to: email,
+    from: "server-only",
+    fromName: "SafeSteps Kenya System",
+    subject: "🛡️ SafeSteps account verified",
+    body: message,
+    timestamp: nowStr,
+    status: "Generated locally (delivery is server-side)"
+  });
+  persist();
 }
 
 function editSignUpEmail(isOnboarding){
@@ -9358,16 +9310,17 @@ function resendSavedInfoEmail(){
     return;
   }
   sendSystemVerifiedReceipt(state.userAccount.fullName, state.userAccount.email);
-  showToast("📨 Saved account information sent to " + state.userAccount.email + " by safestepske@gmail.com!");
+  showToast("📄 Receipt generated locally for " + state.userAccount.email + " — download it from the dispatch log.");
 }
 
 function signOutSafeStepsAccount(){
   if(confirm("Are you sure you want to sign out? Your local progress on this device will remain intact.")){
+    SS.session.logout().catch(function(){ /* cookies are cleared server-side regardless */ });
     state.userAccount = null;
     state.cloudEmail = null;
     state.googleDisplayName = null;
-    localStorage.removeItem("safesteps_pending_code");
-    localStorage.removeItem("safesteps_pending_account");
+    state.cloudUid = null;
+    localStorage.removeItem("safesteps_pending_email");
     pendingVerificationCode = null;
     pendingAccountData = null;
     persist();
@@ -9397,18 +9350,14 @@ function closeSystemEmailDispatchModal(){
 
 function handleModalGotIt(){
   closeSystemEmailDispatchModal();
+  // The verification code lives only in the user's inbox — it is generated
+  // server-side and only its fingerprint is stored, so there is nothing here
+  // to auto-fill (this used to paste a client-generated code into the field).
   if(pendingVerificationCode){
     const onbInput = document.getElementById("onbVerifyCodeInput");
     const accInput = document.getElementById("accVerifyCodeInput");
-    const onbCard = document.getElementById("onbVerifyCard");
-    const accView = document.getElementById("accountVerifyView");
-    if(onbInput && onbCard && onbCard.style.display !== "none"){
-      onbInput.value = pendingVerificationCode;
-      showToast("💡 Verification code auto-filled: " + pendingVerificationCode + " — Click Verify Code!");
-    } else if(accInput && accView && accView.style.display !== "none"){
-      accInput.value = pendingVerificationCode;
-      showToast("💡 Verification code auto-filled: " + pendingVerificationCode + " — Click Verify Account!");
-    }
+    if(onbInput) onbInput.focus();
+    else if(accInput) accInput.focus();
   }
 }
 
@@ -9486,11 +9435,16 @@ function clearSystemEmailLog(){
   }
 }
 
-function testSendVerificationEmail(){
-  const to = state.cloudEmail || (state.userAccount ? state.userAccount.email : "test.member@gmail.com");
-  const name = state.googleDisplayName || (state.userAccount ? state.userAccount.fullName : "Test User");
-  const code = Math.floor(1000 + Math.random() * 9000).toString();
-  sendSystemVerificationEmail(name, to, code, false);
+// Replaces the old "send test code" button: a test code used to be generated in
+// the browser and displayed on screen, which is exactly the weakness removed.
+// Now the server issues (and rate-limits) a real single-use code.
+function requestNewVerificationCode(){
+  const email = (pendingAccountData && pendingAccountData.email)
+    || localStorage.getItem(PENDING_EMAIL_KEY)
+    || (state.userAccount && state.userAccount.email)
+    || null;
+  if(!email){ showToast("Enter your email address on the sign-up form first."); return; }
+  resendAccountCode(false);
 }
 
 function toggleAccountGatewayAdvanced(){}
@@ -9551,6 +9505,21 @@ function handleIntegrityFile(e){
   if(photoPrev) photoPrev.style.display = "none";
   if(videoPrev) videoPrev.style.display = "none";
   if(audioPrev) audioPrev.style.display = "none";
+
+  // Reject oversized or non-media files before they are read into memory.
+  // (The server sniffs magic bytes as well; this is the fast, local guard.)
+  const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+  const ALLOWED_UPLOAD_TYPES = ["image/jpeg","image/png","image/webp","audio/webm","audio/mpeg","video/mp4","video/webm"];
+  if(file.size > MAX_UPLOAD_BYTES){
+    showToast("⚠️ Evidence files must be smaller than 8 MB.");
+    e.target.value = "";
+    return;
+  }
+  if(ALLOWED_UPLOAD_TYPES.indexOf(file.type) === -1){
+    showToast("⚠️ Only JPEG/PNG/WebP photos, WebM/MP3 audio or MP4/WebM video can be attached.");
+    e.target.value = "";
+    return;
+  }
 
   const reader = new FileReader();
   reader.onload = function(ev){
@@ -9676,6 +9645,11 @@ async function submitIntegrityReport(){
   state.integrityReports.unshift(reportRecord);
   persist();
 
+  // Encrypt the narrative on this device, then let the server store only
+  // ciphertext. Guaranteed offline-first: if either step fails, the report
+  // still exists locally and the upload is retried later.
+  encryptAndUploadIntegrityReport(reportRecord, isAnon);
+
   // Reset form fields cleanly
   if(document.getElementById("integrityNoteInput")) document.getElementById("integrityNoteInput").value = "";
   if(document.getElementById("integrityOfficerName")) document.getElementById("integrityOfficerName").value = "";
@@ -9691,6 +9665,53 @@ async function submitIntegrityReport(){
   
   // Trigger multi-agency dispatch notification email
   await dispatchIntegrityAgencyEmail(reportRecord);
+}
+
+/**
+ * Client-side encryption + upload for a whistleblower report.
+ *
+ * Order of operations matters: the plaintext narrative never touches the
+ * network. It is sealed with a device-held, non-extractable AES-256-GCM key,
+ * and only the ciphertext (plus metadata) is posted. The server re-validates
+ * every field and binds ownership to the authenticated user, so a caller
+ * cannot file a report "as" somebody else.
+ */
+async function encryptAndUploadIntegrityReport(record, isAnon){
+  const session = await SS.session.me().catch(() => null);
+  if(!session || !session.user){
+    console.info("Integrity report kept on this device until you sign in.");
+    return;
+  }
+  if(!SS.crypto.available()){
+    showToast("⚠️ This browser cannot encrypt evidence — the report stays on this device.");
+    return;
+  }
+  try{
+    const sealed = await SS.dossier.encrypt(JSON.stringify({
+      entity: record.entity,
+      location: record.location,
+      officer: record.officer,
+      plate: record.plate,
+      description: record.description,
+      capturedAt: record.timestamp
+    }));
+
+    await SS.api("/api/integrity", {
+      method: "POST",
+      body: {
+        category: "bribery",
+        county: state.county || null,
+        anonymous: Boolean(isAnon),
+        narrativeCiphertext: sealed.narrative_ciphertext,
+        narrativeIv: sealed.narrative_iv,
+        narrativeSalt: sealed.narrative_salt
+      }
+    });
+    showToast("🔐 Encrypted dossier stored. Only this device can read it.");
+  }catch(err){
+    console.warn("Encrypted upload deferred:", err && err.message);
+    showToast("📥 Report saved on this device — encrypted upload will retry when you reconnect.");
+  }
 }
 
 async function dispatchIntegrityAgencyEmail(rec){
@@ -9746,24 +9767,29 @@ Road Safety & Public Integrity for Everyone, Every Day.
   state.systemEmailLog.unshift(emailRecord);
   persist();
 
-  // Try live transmission via EmailJS if configured
-  const srvId = emailjsGatewayConfig.serviceId || (typeof EMAILJS_SERVICE_ID !== "undefined" && !EMAILJS_SERVICE_ID.startsWith("YOUR_") ? EMAILJS_SERVICE_ID : null);
-  const tplId = emailjsGatewayConfig.templateId || (typeof EMAILJS_TEMPLATE_ID !== "undefined" && !EMAILJS_TEMPLATE_ID.startsWith("YOUR_") ? EMAILJS_TEMPLATE_ID : null);
-  
-  if(srvId && tplId && typeof emailjs !== "undefined"){
-    try{
-      await emailjs.send(srvId, tplId, {
-        to_email: "report@eacc.go.ke",
-        subject: subject,
-        message: message,
-        reply_to: state.cloudEmail || "safestepske@gmail.com"
-      });
-    }catch(e){ console.log("Agency REST transmission note:", e); }
+  // Transmission is server-side only: the browser holds no mail credentials.
+  // The server rate-limits referrals and queues them for delivery, so a
+  // whistleblower cannot be used as a free mail relay.
+  let dispatched = false;
+  try{
+    await SS.api("/api/integrity/dispatch", {
+      method: "POST",
+      body: {
+        caseReference: rec.id,
+        subject: String(subject).slice(0, 120),
+        summary: String(rec.description || "").slice(0, 1500),
+        anonymous: String(rec.reporterName || "").indexOf("Redacted") !== -1
+      }
+    });
+    dispatched = true;
+  }catch(e){
+    console.warn("Agency dispatch deferred:", e && e.message);
   }
 
-  // Also contribute anonymous tally to Firebase community stats if connected
   showSystemEmailModal(emailRecord, "SafeSteps Multi-Agency Whistleblower Dispatch");
-  showToast("🚀 Evidence transmitted to EACC, Kenya Police & NTSA desks!");
+  showToast(dispatched
+    ? "🚀 Evidence referral queued for EACC, Kenya Police & NTSA desks!"
+    : "📥 Report saved locally — the referral will be sent when you reconnect.");
 }
 
 function renderIntegrityFeed(){
@@ -9854,6 +9880,8 @@ function renderAccountPage(){
 
   const isVerified = state.userAccount && state.userAccount.verified;
   const isPending = pendingVerificationCode && pendingAccountData;
+  const signInView = document.getElementById("accountSignInView");
+  if(signInView) signInView.style.display = (isVerified || isPending) ? "none" : "block";
 
   if(isVerified){
     if(badge){
@@ -9951,6 +9979,35 @@ function disconnectFirebase(){
 }
 async function initCloudSyncIfConfigured(){}
 
+/* ---------------- SERVER SESSION RESTORE ----------------
+   The session lives in an HttpOnly cookie, so this page cannot read a token —
+   it simply asks the server "who am I?". If the access cookie has expired the
+   server rotates it from the refresh cookie; if both are gone the user is
+   treated as a guest and all offline features keep working. */
+async function restoreServerSession(){
+  try{
+    const me = await SS.session.me();
+    if(me && me.user){
+      state.userAccount = {
+        fullName: me.user.fullName || (me.user.email || "").split("@")[0],
+        email: me.user.email,
+        verified: Boolean(me.user.emailVerified),
+        createdTs: (state.userAccount && state.userAccount.createdTs) || new Date().toISOString(),
+        verifiedTs: new Date().toISOString()
+      };
+      state.cloudEmail = me.user.email;
+      state.cloudUid = me.user.id;
+      state.googleDisplayName = me.user.fullName || null;
+      persist();
+    }
+  }catch(err){
+    console.warn("Session restore skipped:", err && err.message);
+  }finally{
+    updateHeaderAccountBadge();
+    if(typeof renderAccountPage === "function"){ try{ renderAccountPage(); }catch(e){} }
+  }
+}
+
 /* ---------------- REMINDERS (LOCAL NOTIFICATIONS) ---------------- */
 // SafeSteps has no backend, so there's no server to send real push notifications
 // while the app is closed — that needs a push service and a signed-in server.
@@ -10019,6 +10076,7 @@ function checkDailyReminder(){
 function init(){
   applyTheme();
   applyLanguage();
+  restoreServerSession();
   setTimeout(() => { try { loadSrsFeaturesData(); } catch(e){} }, 200);
   updateStreak();
   renderDailyTip();
