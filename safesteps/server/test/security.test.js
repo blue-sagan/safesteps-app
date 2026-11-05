@@ -41,6 +41,26 @@ const { securityHeaders } = require('../lib/security-headers');
 let server;
 let base;
 
+// ---------------------------------------------------------------------------
+// Runtime guard: the local store needs node:sqlite, which ships in Node 22.
+//
+// These tests exercise the non-Supabase path (challenge storage, outbound mail,
+// rate-limit counters) and therefore need the local SQLite store. On Node 20
+// `node:sqlite` does not exist, so the honest outcome is "skipped for a stated
+// reason" rather than a red build that looks like a real regression. The rest of
+// the suite, including every Supabase-path test, still runs on Node 20 — which
+// is the point of testing the floor declared in package.json.
+// ---------------------------------------------------------------------------
+if (!require('../lib/db').isAvailable()) {
+  const runtime = process.version;
+  require('node:test')(
+    `local-store tests skipped: this runtime (${runtime}) has no node:sqlite`,
+    { skip: `node:sqlite requires Node 22+; running ${runtime}` },
+    () => {}
+  );
+  return;
+}
+
 test.before(async () => {
   server = createServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));

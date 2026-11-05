@@ -24,11 +24,34 @@ const crypto = require('node:crypto');
 let db = null;
 let sqlite = null;
 
+/**
+ * Raised when the local store is genuinely unavailable (Node < 22, where
+ * `node:sqlite` does not exist). Distinct from a SQL error so callers can
+ * degrade instead of failing a request.
+ */
+class LocalStoreUnavailable extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'LocalStoreUnavailable';
+    this.code = 'local_store_unavailable';
+  }
+}
+
 function getDb() {
   if (db) return db;
-  // node:sqlite is shipped with Node 22+; keep the import lazy so the server
-  // still boots on runtimes without it (Supabase path is then mandatory).
-  ({ DatabaseSync: sqlite } = require('node:sqlite'));
+  // node:sqlite shipped in Node 22. On an older runtime this module used to
+  // throw a bare "Cannot find module 'node:sqlite'" at the first query, which
+  // took down any code path that touched the local store — including the
+  // security-audit writes and the whole test suite — even though the Supabase
+  // path was perfectly usable. A missing optional dependency must degrade, not
+  // crash: throw something callers can recognise and handle.
+  try {
+    ({ DatabaseSync: sqlite } = require('node:sqlite'));
+  } catch (error) {
+    throw new LocalStoreUnavailable(
+      'local SQLite store unavailable on this runtime (node:sqlite requires Node 22+): ' + error.message
+    );
+  }
   const file = process.env.SQLITE_PATH || ':memory:';
   db = new sqlite(file);
   db.exec('PRAGMA journal_mode = WAL;');
@@ -200,7 +223,18 @@ function decryptAtRest(payload, keyBase64) {
   ]).toString('utf8');
 }
 
+function isAvailable() {
+  try {
+    getDb();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
+  LocalStoreUnavailable,
+  isAvailable,
   query,
   getDb,
   rest,
