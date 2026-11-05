@@ -28,9 +28,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - name: Show the runtime
+        run: node --version && node -e "console.log('fetch:', typeof fetch, 'getSetCookie:', typeof new Headers().getSetCookie)"
+
       - name: Run the test suite
         working-directory: safesteps/server
-        run: node --test test/*.test.js
+        # Not `node --test test/*.test.js`: on Node 20 the shell glob is expanded
+        # by the runner, and node --test needs the per-file reporter to name a
+        # failing file. Running per-file also stops one bad module from hiding
+        # the others' results.
+        run: |
+          set -o pipefail
+          fail=0
+          for f in test/*.test.js; do
+            echo "::group::$f"
+            if ! node --test "$f"; then
+              echo "::error file=$f::test file failed"
+              fail=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $fail
       - name: Every module parses
         working-directory: safesteps/server
         run: |
