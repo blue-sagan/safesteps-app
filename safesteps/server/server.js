@@ -25,6 +25,7 @@ const api = require('./lib/api');
 const staticFiles = require('./lib/static');
 const bot = require('./lib/bot-protection');
 const session = require('./lib/session');
+const analytics = require('./lib/analytics');
 const { clientIpHash } = require('./lib/http');
 
 const SENSITIVE_PREFIXES = ['/api/auth', '/api/vault', '/api/uploads', '/api/account'];
@@ -192,6 +193,9 @@ async function requestListener(req, res) {
         // 'hook' | 'admin' | 'none' — how an address gets confirmed.
         confirmRoute: config.confirmRoute(),
         configWarnings: (config.warnings || []).length,
+        // Counts only — how many events are buffered and whether the last flush
+        // failed is exactly the signal that monitoring is not silently broken.
+        analytics: analytics.snapshot(),
       })
     );
     return;
@@ -254,11 +258,18 @@ if (require.main === module) {
         `(${config.isProduction ? 'production' : 'development'} mode)`
     );
     console.info(`Challenge difficulty: ${bot.DIFFICULTY} leading hex zeros`);
+    // Analytics flush loop. Unref'd, so it never keeps the process alive.
+    analytics.start();
   });
 
   const shutdown = (signal) => {
     console.info(`[${signal}] draining…`);
-    server.close(() => process.exit(0));
+    server.close(async () => {
+      // Best-effort: don't lose the last few events on a redeploy. Bounded by
+      // its own timeout inside flush(), so a hung platform cannot delay exit.
+      try { await analytics.stop(); } catch { /* never block shutdown */ }
+      process.exit(0);
+    });
     setTimeout(() => process.exit(1), 10000).unref();
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));

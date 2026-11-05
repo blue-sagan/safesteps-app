@@ -444,6 +444,156 @@
   };
 
   /* ------------------------------------------------------------------ */
+  /* Analytics                                                          */
+  /* ------------------------------------------------------------------ */
+  /**
+   * Privacy-preserving product analytics.
+   *
+   * Sends ONLY an event name and a small closed-vocabulary field object. No
+   * identifier of any kind is generated, stored or transmitted: no user id, no
+   * session id, no device fingerprint, no IP address sent by us (the server does
+   * not log one for these requests), and no free text.
+   *
+   * The event names must match lib/analytics.js on the server; anything else is
+   * dropped there. Events are batched and sent on an idle callback or when the
+   * page is hidden, so this never competes with the app for the network.
+   *
+   * Respects the user's preference (Settings → Anonymous app telemetry). When
+   * the user opts out, nothing is queued at all — an opt-out that still
+   * transmits is not an opt-out.
+   */
+  const ANALYTICS_MAX_QUEUE = 30;
+  let analyticsQueue = [];
+  let analyticsTimer = null;
+
+  function analyticsAllowed() {
+    try {
+      // Default ON: the data is aggregate and contains nothing identifying, and
+      // a launch with no data at all is how you fail to notice that nobody can
+      // sign in. Users can switch it off, and the switch is honoured exactly.
+      return window.localStorage.getItem('safesteps_telemetry_optout') !== '1';
+    } catch {
+      return true;
+    }
+  }
+
+  function analyticsEnabledByPreference(preference) {
+    try {
+      if (preference) window.localStorage.removeItem('safesteps_telemetry_optout');
+      else window.localStorage.setItem('safesteps_telemetry_optout', '1');
+    } catch {
+      /* private mode: the preference cannot persist, which is its own answer */
+    }
+    if (!preference) analyticsQueue = [];
+  }
+
+  function flushAnalytics({ keepalive = false } = {}) {
+    if (!analyticsQueue.length) return;
+    const events = analyticsQueue.splice(0, analyticsQueue.length).slice(0, 20);
+    try {
+      const body = JSON.stringify({ events });
+      if (keepalive && navigator.sendBeacon) {
+        navigator.sendBeacon('/api/events', new Blob([body], { type: 'application/json' }));
+        return;
+      }
+      fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        credentials: 'same-origin',
+        keepalive,
+      }).catch(() => {
+        /* analytics must never surface an error to the user */
+      });
+    } catch {
+      /* never throw from analytics */
+    }
+  }
+
+  function track(name, fields) {
+    if (!analyticsAllowed()) return;
+    if (typeof name !== 'string' || !name) return;
+    if (analyticsQueue.length >= ANALYTICS_MAX_QUEUE) analyticsQueue.shift();
+    analyticsQueue.push({ name, fields: fields || {} });
+
+    // Send in a batch shortly after the current interaction finishes.
+    if (analyticsTimer) return;
+    analyticsTimer = setTimeout(() => {
+      analyticsTimer = null;
+      flushAnalytics();
+    }, 4000);
+  }
+
+  window.addEventListener('pagehide', () => flushAnalytics({ keepalive: true }), { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushAnalytics({ keepalive: true });
+  });
+
+  SS.analytics = { track, flush: flushAnalytics, setPreference: analyticsEnabledByPreference, allowed: analyticsAllowed };
+
+  /**
+   * Client error monitoring.
+   *
+   * Records that an error happened and what kind — nothing else. The message,
+   * stack and any values are deliberately NOT sent: a stack trace routinely
+   * contains user input (a typed name, an email in a URL), which is exactly the
+   * kind of thing that must not end up in an analytics table. Cross-origin
+   * "Script error." noise is ignored, since it carries no usable information.
+   */
+  function classifyError(message) {
+    const text = String(message || '');
+    if (!text || /^Script error/i.test(text)) return null;
+    if (/fetch|network|Failed to load|NetworkError|Load failed/i.test(text)) return 'network';
+    if (/is not a function|is not defined|undefined is not|cannot read/i.test(text)) return 'javascript';
+    if (/QuotaExceeded|Storage/i.test(text)) return 'storage';
+    if (/permission|denied|NotAllowed/i.test(text)) return 'permission';
+    return 'other';
+  }
+
+  window.addEventListener('error', (event) => {
+    const kind = classifyError(event && event.message);
+    if (kind) track('client_error', { kind });
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event && event.reason;
+    const kind = classifyError(reason && (reason.message || reason));
+    if (kind) track('client_error', { kind });
+  });
+
+  /**
+   * Wrap a fetch so API failures are counted by route and status.
+   *
+   * The route is normalised to a path with numeric ids removed, so it is a small
+   * fixed vocabulary rather than anything user-supplied.
+   */
+  SS.instrumentFetch = function instrumentFetch() {
+    if (SS._fetchInstrumented || typeof window.fetch !== 'function') return;
+    SS._fetchInstrumented = true;
+    const original = window.fetch.bind(window);
+    window.fetch = function patchedFetch(input, init) {
+      const url = typeof input === 'string' ? input : input && input.url ? input.url : '';
+      const isApi = url.indexOf('/api/') === 0;
+      return original(input, init).then(
+        (response) => {
+          if (isApi && !response.ok && response.status >= 500) {
+            const route = url.split('?')[0].replace(/\/\d+/g, '/:id').slice(0, 64);
+            track('api_error', { route, status: String(response.status) });
+          }
+          return response;
+        },
+        (error) => {
+          if (isApi) {
+            const route = url.split('?')[0].replace(/\/\d+/g, '/:id').slice(0, 64);
+            track('api_error', { route, status: 'network' });
+          }
+          throw error;
+        }
+      );
+    };
+  };
+
+  /* ------------------------------------------------------------------ */
   /* Uploads                                                            */
   /* ------------------------------------------------------------------ */
   /**

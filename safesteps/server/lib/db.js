@@ -79,6 +79,18 @@ function getDb() {
       detail     TEXT,
       created_at INTEGER NOT NULL
     );
+
+    -- Analytics events (lib/analytics.js). Deliberately has no user identifier
+    -- column: there is nothing to store one in, so no future change can quietly
+    -- start collecting them.
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL,
+      fields     TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_analytics_name_time
+      ON analytics_events (name, created_at DESC);
   `);
   return db;
 }

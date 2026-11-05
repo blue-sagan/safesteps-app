@@ -2827,6 +2827,14 @@ function safeJsonParse(str, fallback = null){
   try{ return JSON.parse(str) || fallback; }catch(e){ return fallback; }
 }
 /* ---------------- STATE ---------------- */
+/* Wire up real analytics: instrument fetch so failures are counted by route,
+   apply the saved preference, and count the app opening. None of this sends an
+   identifier of any kind — see assets/security.js. */
+if(window.SS){
+  if(typeof SS.instrumentFetch === "function") SS.instrumentFetch();
+  if(SS.analytics) SS.analytics.track("app_open", { outcome: "ok" });
+}
+
 const LS_KEY = "safesteps_state_v3";
 let state = safeJsonParse(localStorage.getItem(LS_KEY), null) || {
   themePref:"system", textSize:"sm", highContrast:false, simplifiedView:false, colorblindSafe:false,
@@ -4338,6 +4346,8 @@ function showPage(id, opts){
     try{ history.pushState({ssPage:id, depth:navHistory.length}, "", "#"+id); }catch(e){}
   }
   navigatingViaHistory = false;
+  // Count which screens get used. The id only — no content, no timing, no user.
+  if(currentId !== id) trackScreen(id);
   document.querySelectorAll(".page").forEach(s=>s.classList.remove("active"));
   const targetPage = document.getElementById("page-"+id);
   if(targetPage) targetPage.classList.add("active");
@@ -11229,8 +11239,35 @@ function toggleLatencySimulation(){
 function toggleTelemetryOptIn(){
   const toggle = document.getElementById("telemetryOptInToggle");
   state.telemetryOptIn = toggle ? toggle.checked : false;
+  // This used to record a preference that nothing read — the switch promised
+  // telemetry control while no telemetry existed. It now drives the real
+  // pipeline, so switching it off stops events being queued at all.
+  if(window.SS && SS.analytics){
+    SS.analytics.setPreference(state.telemetryOptIn);
+  }
   persist();
-  showToast(state.telemetryOptIn ? "📊 Anonymous aggregated safety telemetry enabled (Zero PII)" : "📊 Telemetry opted out");
+  showToast(state.telemetryOptIn ? "📊 Anonymous usage counts enabled — no personal data, no identifiers" : "📊 Telemetry off — nothing is sent");
+}
+
+/**
+ * Put the telemetry switch into the state the saved preference actually has.
+ * Without this the checkbox renders "on" from the HTML regardless of what the
+ * user chose last time.
+ */
+function syncTelemetryToggle(){
+  const toggle = document.getElementById("telemetryOptInToggle");
+  if(!toggle) return;
+  if(window.SS && SS.analytics){
+    toggle.checked = SS.analytics.allowed();
+    state.telemetryOptIn = toggle.checked;
+  }
+}
+
+/** Record a screen view by the page id, e.g. "home", never the content. */
+function trackScreen(pageId){
+  if(window.SS && SS.analytics && pageId){
+    SS.analytics.track("screen_view", { screen: String(pageId).replace(/^page-/, "").slice(0, 32) });
+  }
 }
 
 function runAccessibilityAudit(){

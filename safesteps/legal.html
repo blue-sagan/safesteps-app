@@ -152,11 +152,46 @@ summary is built from aggregate counts only.</p>
 <h3>3. What we do not do</h3>
 <ul>
   <li><strong>No advertising and no ad networks.</strong> There is no advertising SDK in the app.</li>
-  <li><strong>No third-party analytics or tracking pixels</strong> are embedded in this build. (If the operator later adds an analytics service, it must be named here before it is enabled.)</li>
+  <li><strong>No third-party analytics, no tracking pixels, and no advertising SDK.</strong> There is no Google Analytics, no Facebook pixel, and no vendor script of any kind.</li>
   <li><strong>No selling or renting of personal data.</strong> Ever.</li>
   <li><strong>No location tracking in the background.</strong> Location is used only when you are on a feature that needs it and you allow it — for a hazard report, route planning or SOS.</li>
   <li><strong>No access to your contacts.</strong> A trusted contact is typed in by you.</li>
 </ul>
+
+<h3 id="analytics">3a. Anonymous usage counts (our own, first-party)</h3>
+
+<p>So that we can tell whether the app is working and which parts people actually use,
+SafeSteps records a small number of <strong>event counts on its own server</strong>. This is not a
+third-party analytics service: nothing is loaded from a vendor, no cookie is set, and no
+profile is built.</p>
+
+<table>
+  <tr><th>What is recorded</th><th>What is never recorded</th></tr>
+  <tr>
+    <td>
+      An event name — e.g. app opened, a screen was viewed (by name), a sign-in succeeded or
+      failed, a report was submitted — plus a short coded value such as the screen name, an
+      HTTP status, or a failure category.
+    </td>
+    <td>
+      Your identity in any form: no account id, no email, no IP address stored with the
+      event, no device or browser fingerprint, no session id, no free text, no location, and
+      nothing you typed.
+    </td>
+  </tr>
+</table>
+
+<p>The database table behind this has <strong>no column that could hold an identifier</strong>, so
+events cannot be traced back to a person even by us. Counts are deleted automatically after
+180 days.</p>
+
+<p><strong>You can turn it off.</strong> Settings → <em>Anonymous app telemetry</em>. When it is
+off, nothing is sent at all. The switch is honoured immediately and remembered on your device.
+The app works identically either way.</p>
+
+<p>Error reports are counts too: we record that an error of a given <em>type</em> happened
+(network, JavaScript, storage, permission) — never the error message, the stack trace or any
+value in it, because those routinely contain what a user typed.</p>
 
 <h3>4. Third parties that do receive data</h3>
 

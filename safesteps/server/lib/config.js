@@ -166,6 +166,10 @@ const config = {
       api: [300, 60 * 1000],
       upload: [30, 60 * 1000],
       global: [1200, 60 * 1000],
+      // Analytics ingest. Generous enough for real use (events are batched, so a
+      // session is a handful of requests) but low enough that it cannot be used
+      // to flood the events table.
+      analytics: [60, 60 * 1000],
     },
     // Upload policy. MIME allow-list is checked against the *sniffed* bytes,
     // not the client-supplied Content-Type.

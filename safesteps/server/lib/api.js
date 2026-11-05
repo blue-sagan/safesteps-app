@@ -15,6 +15,7 @@ const sendEmailHook = require('./send-email-hook');
 const verification = require('./verification');
 const bot = require('./bot-protection');
 const rateLimit = require('./rate-limit');
+const analytics = require('./analytics');
 const session = require('./session');
 const mailer = require('./mailer');
 const {
@@ -1032,6 +1033,66 @@ async function handleDeleteAccount(req, res) {
   sendJson(res, 200, { ok: true, message: 'Your account and all SafeSteps data have been deleted.' });
 }
 
+/* ---------------------------- analytics --------------------------- */
+
+/**
+ * Public event ingest.
+ *
+ * This is an unauthenticated endpoint that writes to a database, so the risks
+ * are obvious and are handled explicitly:
+ *
+ *   • Only the fixed event names in lib/analytics.js are accepted, and each
+ *     event's fields are sanitised to short structured tokens. There is no way
+ *     to store free text, an email address or a URL through it.
+ *   • Rate limited per client (default 60/min), so it cannot be used to flood
+ *     the table.
+ *   • Batches are capped at 20 events per request.
+ *   • The response is always 204 with no body — nothing to probe, nothing that
+ *     reveals whether an event name is known.
+ *   • Storage is buffered, so a burst costs one insert per 15 seconds rather
+ *     than one per request.
+ */
+async function handleEvents(req, res) {
+  await rateLimit.enforce('analytics', clientIpHash(req));
+
+  const body = await readJson(req);
+  const events = Array.isArray(body.events) ? body.events.slice(0, 20) : [];
+
+  let accepted = 0;
+  for (const event of events) {
+    if (!event || typeof event.name !== 'string') continue;
+    if (analytics.record(event.name, event.fields || {})) accepted += 1;
+  }
+
+  // No body and always the same status: the client has nothing to learn from it.
+  res.writeHead(204, { 'Cache-Control': 'no-store' });
+  res.end();
+  void accepted;
+}
+
+/**
+ * Operational metrics for monitors and dashboards.
+ *
+ * Requires the service-role key as a bearer token: this is an operator view, not
+ * a public one, and it names internal routes. It reports counts only — never an
+ * event's contents and never anything user-specific.
+ */
+async function handleMetrics(req, res) {
+  const auth = String(req.headers.authorization || '');
+  const key = config.supabase.serviceRoleKey;
+  if (!key || auth !== `Bearer ${key}`) {
+    const err = new Error('Not authorised.');
+    err.status = 401;
+    err.code = 'unauthenticated';
+    throw err;
+  }
+
+  sendJson(res, 200, {
+    analytics: analytics.snapshot(),
+    collectedAt: new Date().toISOString(),
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Router                                                              */
 /* ------------------------------------------------------------------ */
@@ -1042,6 +1103,8 @@ async function handle(req, res, url) {
 
   const routes = {
     'GET /api/config': handleConfig,
+    'POST /api/events': handleEvents,
+    'GET /api/metrics': handleMetrics,
     'GET /api/auth/challenge': handleChallenge,
     'POST /api/auth/register': handleRegister,
     'POST /api/auth/verify': handleVerify,
