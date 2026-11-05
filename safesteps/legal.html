@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SafeSteps privacy policy and terms of use — what data the app keeps, where it lives, and what it does not do.">
+<title>Privacy Policy &amp; Terms — SafeSteps</title>
+<link rel="icon" href="./assets/brand-logo.png">
+<!--
+  A standalone page on purpose. These documents are read once, sometimes by a
+  parent, a teacher or a data-protection officer, and they must be linkable and
+  readable without signing in or loading the app shell (which is ~40k of CSS and
+  a service worker). Serve "/legal.html" and link to it from the account page.
+-->
+<style>
+  :root{
+    --bg:#0A0F1C; --card:#121A2E; --card2:#1A2440; --text:#F2F3F7; --dim:#9BA3B8;
+    --border:#26314E; --teal:#00C853; --red:#F44336; --gold:#FFC107;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#F4FBF6; --card:#FFFFFF; --card2:#EEF6F0; --text:#181A20; --dim:#5F6B72;
+           --border:#DDEBE0; --teal:#00A844; --red:#E53935; --gold:#E5A100; }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Inter',sans-serif;
+    font-size:16px; line-height:1.65;
+    padding:0 0 calc(48px + env(safe-area-inset-bottom, 0px));
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:24px 20px 0;}
+  header{padding:20px 0 18px; border-bottom:1px solid var(--border); margin-bottom:8px;}
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand img{width:44px; height:44px; border-radius:14px; background:var(--card2);}
+  h1{font-size:22px; margin:0; letter-spacing:-0.01em;}
+  .sub{color:var(--dim); font-size:13px; margin:2px 0 0;}
+  h2{font-size:18px; margin:34px 0 10px; padding-top:8px;}
+  h3{font-size:15.5px; margin:22px 0 6px;}
+  p, li{font-size:15.5px;}
+  ul,ol{padding-left:22px;}
+  li{margin:6px 0;}
+  a{color:var(--teal);}
+  strong{color:var(--text);}
+  code{background:var(--card2); padding:1px 6px; border-radius:6px; font-size:14px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px 20px; margin:16px 0;}
+  .warn{border-left:4px solid var(--red);}
+  .note{border-left:4px solid var(--gold);}
+  .toc{display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 0;}
+  .toc a{
+    display:inline-block; padding:9px 14px; min-height:44px; border-radius:999px;
+    background:var(--card2); border:1px solid var(--border); color:var(--text);
+    text-decoration:none; font-size:14px; font-weight:600;
+  }
+  /* Tables carry long unbreakable content (emails, column names). Without this
+     container a wide table pushes the whole page sideways on a small phone. */
+  .tablewrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:14px 0; border-radius:12px;}
+  table{width:100%; border-collapse:collapse; margin:0; font-size:14.5px; min-width:280px;}
+  td,th{overflow-wrap:anywhere;}
+  th,td{text-align:left; padding:10px 10px; border-bottom:1px solid var(--border); vertical-align:top;}
+  th{color:var(--dim); font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.04em;}
+  .updated{color:var(--dim); font-size:13px; margin-top:6px;}
+  .back{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-height:48px; margin-top:32px; padding:0 22px; border-radius:12px;
+    background:var(--teal); color:#04220f; font-weight:800; text-decoration:none;
+  }
+  .placeholder{border:1px dashed var(--red); border-radius:10px; padding:2px 8px; color:var(--red); font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <img src="./assets/brand-logo.png" alt="">
+    <div>
+      <h1>Privacy Policy &amp; Terms of Use</h1>
+      <p class="sub">SafeSteps · Project 360° Shield · Kenya</p>
+    </div>
+  </div>
+  <div class="toc">
+    <a href="#privacy">Privacy Policy</a>
+    <a href="#terms">Terms of Use</a>
+    <a href="#not-medical">Safety notice</a>
+  </div>
+  <p class="updated">Last updated: 5 November 2026</p>
+</header>
+
+<div class="card note">
+  <p style="margin:0;"><strong>Before you publish this page</strong>, replace the three
+  <span class="placeholder">[bracketed]</span> items: the operator's legal name, a contact
+  address, and the governing jurisdiction. Everything else here was written against what the
+  app in this repository actually does — it is not a template.</p>
+</div>
+
+<!-- ==================================================================== -->
+<h2 id="privacy">Privacy Policy</h2>
+
+<p>SafeSteps is a road-safety app for Kenya, built with the Kenya Scouts Association as
+<strong>Project 360° Shield</strong>. It is operated by
+<span class="placeholder">[operator legal name]</span> ("we", "us").
+This page explains what the app stores, where it is stored, and what you can do about it.</p>
+
+<p>The short version: <strong>most of what you enter never leaves your phone.</strong>
+SafeSteps works with no account and no connection. Only data you explicitly save to an
+account is sent to a server, and this page lists exactly what that is.</p>
+
+<h3>1. Data that stays on your device</h3>
+
+<p>The app keeps your progress in your browser's local storage under the key
+<code>safesteps_state_v3</code>. It is not uploaded anywhere unless you sign in and use a
+feature that saves to your account.</p>
+
+<div class="tablewrap"><table>
+  <tr><th>What</th><th>Why</th><th>Where</th></tr>
+  <tr><td>Lesson progress, quiz scores, badges, streaks, pledges</td><td>So you can continue where you left off</td><td>Your device only</td></tr>
+  <tr><td>Safety checklists, route planning history, saved signs</td><td>Offline features</td><td>Your device only</td></tr>
+  <tr><td>Trusted contact name, phone and email</td><td>So SOS and sharing can reach them</td><td>Your device only, unless you save it to your account</td></tr>
+  <tr><td>Medical note: name, blood group, allergies</td><td>Show it to a first responder in an emergency</td><td>Your device only</td></tr>
+  <tr><td>Near-miss notes, ride checklists, app preferences, theme, language</td><td>Features and settings</td><td>Your device only</td></tr>
+  <tr><td>A local PIN for the parent portal</td><td>Keeps a child's view behind a PIN</td><td>Your device only</td></tr>
+</table></div>
+
+<p><strong>Medical information is sensitive data.</strong> It is stored only on your device and
+is never transmitted by SafeSteps. Clearing the app's site data, or uninstalling it, deletes
+it — including the copy you might want in an emergency, so keep your own record too.</p>
+
+<h3>2. Data stored on the server, if you create an account</h3>
+
+<p>Creating an account is optional. If you do, the following is stored in our database
+(hosted on Supabase) and is visible only to you:</p>
+
+<div class="tablewrap"><table>
+  <tr><th>Data</th><th>Purpose</th></tr>
+  <tr><td>Email address and password</td><td>Signing in, password reset, email verification</td></tr>
+  <tr><td>Display name, county, school or group</td><td>Personalising the app</td></tr>
+  <tr><td>Hazard and safety reports you submit (category, county, note, approximate location)</td><td>Showing reports back to you and building the community hazard summary</td></tr>
+  <tr><td>Quiz attempts and scores</td><td>Progress across devices</td></tr>
+  <tr><td>Family profile and vault entries</td><td>Family sync</td></tr>
+  <tr><td>Security events (sign-in, failed attempts, password changes)</td><td>Protecting your account</td></tr>
+</table></div>
+
+<p><strong>Passwords are never stored by us in readable form.</strong> They are handled by
+Supabase Auth, which stores a one-way hash. Nobody at SafeSteps can read your password, and we
+will never ask you for it. Passwords must be 6 to 8 characters.</p>
+
+<p><strong>Row-level security is enabled on every table.</strong> Access is enforced by the
+database itself, not just by application code: a request can only read or write rows that
+belong to the signed-in user. Reports you submit are visible to you; the community hazard
+summary is built from aggregate counts only.</p>
+
+<h3>3. What we do not do</h3>
+<ul>
+  <li><strong>No advertising and no ad networks.</strong> There is no advertising SDK in the app.</li>
+  <li><strong>No third-party analytics or tracking pixels</strong> are embedded in this build. (If the operator later adds an analytics service, it must be named here before it is enabled.)</li>
+  <li><strong>No selling or renting of personal data.</strong> Ever.</li>
+  <li><strong>No location tracking in the background.</strong> Location is used only when you are on a feature that needs it and you allow it — for a hazard report, route planning or SOS.</li>
+  <li><strong>No access to your contacts.</strong> A trusted contact is typed in by you.</li>
+</ul>
+
+<h3>4. Third parties that do receive data</h3>
+
+<p>Some features can only work by contacting another service. These are the only ones, and
+each receives the minimum needed:</p>
+
+<div class="tablewrap"><table>
+  <tr><th>Service</th><th>What it receives</th><th>When</th></tr>
+  <tr><td>Supabase (database and sign-in)</td><td>Account and app data listed in §2</td><td>When you use an account feature</td></tr>
+  <tr><td>Your hosting provider (Render)</td><td>Normal web-server logs, including IP addresses</td><td>Every request to the app</td></tr>
+  <tr><td>Open-Meteo (weather)</td><td>Approximate latitude and longitude</td><td>When you open a screen that shows weather</td></tr>
+  <tr><td>cdnjs / jsDelivr (libraries)</td><td>Your IP address, as with any web request</td><td>Loading the map, QR, PDF and text-recognition libraries</td></tr>
+  <tr><td>Google Maps</td><td>The coordinates of a report you choose to view</td><td>Only when you tap "view location"</td></tr>
+  <tr><td>Email delivery (for verification and reset codes)</td><td>Your email address and the message</td><td>Sign-up, verification, password reset</td></tr>
+</table></div>
+
+<p>Integrity ("whistleblower") reports are a special case. If you submit one to a government
+agency such as the EACC, the NTSA or the Kenya Police, the report is prepared on your device
+and sent to the address you choose. <strong>We do not keep a copy.</strong> Choosing the
+anonymous option means your identity is not included in what is sent.</p>
+
+<h3>5. How long we keep things</h3>
+<ul>
+  <li><strong>Account data:</strong> until you delete it (see §6).</li>
+  <li><strong>Security events:</strong> automatically deleted after <strong>365 days</strong>.</li>
+  <li><strong>Email delivery records:</strong> automatically deleted after <strong>90 days</strong>.</li>
+  <li><strong>Verification codes and rate-limit counters:</strong> deleted a day after they expire.</li>
+  <li><strong>On your device:</strong> until you clear the app's site data or uninstall it.</li>
+</ul>
+
+<h3 id="your-data">6. Your control over your data</h3>
+
+<p><strong>Delete your account and everything on our server:</strong> open the app → Account →
+<strong>Delete My Account &amp; Server Data</strong>. This erases your account, your ability
+to sign in, and everything the server holds for you: profile, reports, quiz results, family
+profile, vault entries and security log. The same email and password will no longer work
+afterwards. It is not a request that someone processes later — it happens when you tap it, and
+it cannot be undone.</p>
+
+<p><strong>Delete everything on your device:</strong> clear the app's site data in your browser
+settings (or uninstall the app). That removes your saved progress, medical note and trusted
+contact from the phone.</p>
+
+<p><strong>Access or correct your data:</strong> most of it is on the Account and Settings
+screens. For anything else, contact <span class="placeholder">[contact email]</span>.</p>
+
+<p>If you are in Kenya, the Data Protection Act 2019 gives you the rights to be informed, to
+access, to correct, to delete and to object to processing. If you are in the EU or UK, the
+GDPR gives you equivalent rights. We honour these requests regardless of where you are. You
+also have the right to complain to the Office of the Data Protection Commissioner (Kenya) or
+your local supervisory authority.</p>
+
+<h3>7. Children</h3>
+
+<p>SafeSteps is used in schools and by Scouts, so many users are under 18. The app is designed
+so that a child can use it <strong>without an account</strong> — nothing needs to be uploaded
+for the lessons, quizzes, checklists or route planner to work.</p>
+
+<ul>
+  <li>We do not knowingly collect data from a child under 18 without the involvement of a
+  parent, guardian, teacher or Scout leader at the point an account is created.</li>
+  <li>We do not profile children, show them advertising, or sell their data.</li>
+  <li>Where a school or Scout group sets up accounts for minors, that organisation is
+  responsible for obtaining consent from parents or guardians.</li>
+  <li>A parent or guardian can ask us to delete a child's account at
+  <span class="placeholder">[contact email]</span>.</li>
+</ul>
+
+<h3>8. Security</h3>
+
+<p>Data in transit is encrypted with HTTPS. Passwords are hashed by the authentication
+provider. Server-side secrets are never sent to the browser. The database enforces per-user
+access at row level. Sign-in attempts are rate limited and logged.</p>
+
+<p>No system is perfectly secure. If you believe you have found a vulnerability, please report
+it to <span class="placeholder">[contact email]</span> rather than publishing it.</p>
+
+<h3>9. Changes to this policy</h3>
+
+<p>If this policy changes in a way that affects you, the "last updated" date above changes and
+the app will tell you. Continuing to use SafeSteps after a change means you accept the
+updated policy.</p>
+
+<!-- ==================================================================== -->
+<h2 id="terms">Terms of Use</h2>
+
+<h3>1. What SafeSteps is</h3>
+
+<p>SafeSteps is an <strong>educational road-safety and civic-awareness app</strong> for Kenya,
+produced with the Kenya Scouts Association as Project 360° Shield. It teaches road safety,
+runs quizzes, helps you plan a safer route, records hazards and gives you a way to raise a
+concern about road or traffic conduct.</p>
+
+<div class="card warn">
+  <p style="margin:0;"><strong>SafeSteps is not an emergency service.</strong> The SOS button
+  dials the official Kenyan emergency numbers (112 / 999) on your own phone. We do not run a
+  monitoring centre, we do not receive your SOS, and we cannot send help. If someone is hurt,
+  <strong>call 112 or 999 yourself.</strong></p>
+</div>
+
+<h3 id="not-medical">2. Not a substitute for official guidance or training</h3>
+
+<ul>
+  <li>The app does not replace the Traffic Act, NTSA regulations, or the instructions of a
+  police officer or licensed driving instructor. Where the app and the law differ,
+  <strong>the law applies</strong>.</li>
+  <li>First-aid content is general awareness material, not certified medical training. In a
+  medical emergency, call for professional help.</li>
+  <li>Quiz results, badges and streaks are motivational. They are not a licence, a
+  certification or proof of competence, and must not be presented as one.</li>
+  <li>Route and hazard information is community-reported and can be wrong, out of date or
+  incomplete. It is a hint, not a guarantee. <strong>You remain responsible for your own
+  safety and for following the road rules.</strong></li>
+</ul>
+
+<h3>3. Your account</h3>
+
+<ul>
+  <li>You must give a working email address. You are responsible for keeping your password to
+  yourself. Passwords are 6 to 8 characters.</li>
+  <li>You must be old enough to consent, or have a parent, guardian, teacher or Scout leader
+  agree on your behalf.</li>
+  <li>One account per person. Do not share an account or impersonate someone else.</li>
+  <li>You may delete your account at any time (Account → Delete My Account &amp; Server Data).</li>
+</ul>
+
+<h3>4. Acceptable use</h3>
+
+<p>You agree <strong>not</strong> to:</p>
+<ul>
+  <li>submit false hazard reports, or reports intended to harass, defame or mislead;</li>
+  <li>submit a report about a named individual that you know to be untrue;</li>
+  <li>upload illegal content, or anyone's image without their consent;</li>
+  <li>attempt to break, overload, probe or gain unauthorised access to the app or its
+  database;</li>
+  <li>scrape or bulk-download other people's data;</li>
+  <li>use the app for any commercial purpose without our written permission.</li>
+</ul>
+
+<p>Reports you submit about road conditions may be shown back to you and counted in an
+anonymous community summary. Do not put anything in a report that you would not want read
+aloud — do not include other people's names, phone numbers or other personal details.</p>
+
+<h3>5. Content you submit</h3>
+
+<p>You keep ownership of what you write. By submitting a report you give us permission to
+store it, show it to you, and use it in aggregate form (counts by category and county) to
+build the community hazard picture. We will not publish your report with your identity
+attached.</p>
+
+<div class="card note">
+  <p style="margin:0;"><strong>Integrity reports are sent, not stored.</strong> Reports you
+  send to a government agency through the app go to that agency and are not kept by us.
+  Whether they act on it is up to them. Sending a report does not create a legal case, and it
+  does not replace reporting to the police.</p>
+</div>
+
+<h3>6. Availability</h3>
+
+<p>We aim to keep SafeSteps working, but it is provided <strong>"as is"</strong>. The offline
+features — lessons, quizzes, checklists, route planner, saved data — are designed to work
+without a connection. Account features need one, and may be unavailable during maintenance,
+during an outage, or if the service is paused for exceeding a hosting plan's limits. We may
+change or withdraw features.</p>
+
+<h3>7. Limitation of liability</h3>
+
+<p>To the extent permitted by Kenyan law, we are not liable for indirect or consequential loss
+arising from your use of the app, including reliance on safety, route, hazard or first-aid
+information, or the failure of an emergency call to connect. Nothing here limits liability
+that cannot lawfully be limited, including for death or personal injury caused by negligence,
+or for fraud.</p>
+
+<h3>8. Suspension</h3>
+
+<p>We may suspend or remove an account that submits false reports, abuses the service, or
+breaks these terms. Where it is reasonable to do so, we will tell you why.</p>
+
+<h3>9. Governing law</h3>
+
+<p>These terms are governed by the laws of <span class="placeholder">[jurisdiction — the
+Republic of Kenya unless advised otherwise]</span>, and disputes are subject to the
+jurisdiction of its courts.</p>
+
+<h3>10. Contact</h3>
+
+<p>Questions about these terms or your data:
+<span class="placeholder">[contact email]</span> ·
+<span class="placeholder">[operator legal name and postal address]</span>.</p>
+
+<a class="back" href="./index.html">← Back to SafeSteps</a>
+
+<p class="updated" style="margin-top:22px;">SafeSteps · Project 360° Shield · Kenya Scouts
+Association. This page is served separately from the app so it can be read without an account
+and without JavaScript.</p>
+
+</div>
+</body>
+</html>

@@ -985,17 +985,51 @@ async function handleDeleteAccount(req, res) {
   session.assertSameOrigin(req);
   session.assertCsrf(req, parseCookies(req));
 
+  // Order matters: delete the sign-in record FIRST.
+  //
+  // The reverse order looks safer but is wrong. Erasing the rows first leaves a
+  // live login with no data behind it, so if the second step then fails the user
+  // still has a working account and no way to remove it. Deleting the auth user
+  // first means a failure in step two leaves orphaned rows that nobody can sign
+  // in to see — strictly the better failure, and the rows can be purged later.
+  //
+  // Deleting auth.users also cascades to the tables keyed on it, which is why
+  // the explicit erase below is still worth doing: it is the belt to the
+  // cascade's braces, and it is what a missing cascade would show up as.
+  const hadServiceRole = Boolean(config.supabase.serviceRoleKey);
+  if (hadServiceRole) {
+    await auth.adminDeleteUser(user.id);
+  }
+
   // Erases this user's rows via a SECURITY DEFINER function that only ever
-  // touches auth.uid()'s own data.
-  const result = await db.rest('rpc/api_delete_my_account', {
-    method: 'POST',
-    accessToken: user.accessToken,
-    body: {},
-  });
-  if (!result.ok) throw Object.assign(new Error('Could not erase your data.'), { status: 502 });
+  // touches auth.uid()'s own data. With the auth record gone this can no longer
+  // run under the user's own token, so it is only attempted when the sign-in
+  // record survived (i.e. no service-role key configured).
+  if (!hadServiceRole) {
+    const result = await db.rest('rpc/api_delete_my_account', {
+      method: 'POST',
+      accessToken: user.accessToken,
+      body: {},
+    });
+    // `expose` matters: without it sendError replaces every 5xx body with
+    // "Something went wrong", which after a deletion attempt is the worst
+    // possible answer — the user cannot tell whether anything was removed.
+    if (!result.ok) {
+      throw Object.assign(new Error('Could not erase your data. Nothing was deleted.'), {
+        status: 502,
+        code: 'delete_failed',
+        expose: true,
+      });
+    }
+    session.clearSessionCookies(res);
+    throw Object.assign(
+      new Error('Your data was erased, but the sign-in record could not be removed because this server is not configured for it. Please contact support.'),
+      { status: 503, code: 'delete_partial', expose: true }
+    );
+  }
 
   session.clearSessionCookies(res);
-  sendJson(res, 200, { ok: true, message: 'Your SafeSteps data has been erased.' });
+  sendJson(res, 200, { ok: true, message: 'Your account and all SafeSteps data have been deleted.' });
 }
 
 /* ------------------------------------------------------------------ */

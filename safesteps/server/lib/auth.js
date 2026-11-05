@@ -315,6 +315,43 @@ async function adminConfirmEmail(userId) {
   return response.json();
 }
 
+/**
+ * Admin route: delete a user's sign-in record entirely.
+ *
+ * Needed because erasing a user's rows is not the same as deleting their
+ * account. Without this, "Delete My Account" removed every row and left
+ * `auth.users` intact — so the same email and password still signed in, and the
+ * user reasonably believed deletion had failed. The privacy policy promises the
+ * account is erased; this is what makes that true.
+ *
+ * Idempotent: a 404 (already gone) counts as success, so a retry after a
+ * half-finished deletion still completes.
+ */
+async function adminDeleteUser(userId) {
+  if (!config.supabase.serviceRoleKey) {
+    throw new AuthError(
+      'Account deletion is not fully configured on this server. Your data was erased; contact support to remove the sign-in record.',
+      { status: 503, code: 'delete_unavailable' }
+    );
+  }
+  const url = `${config.supabase.url}/auth/v1/admin/users/${encodeURIComponent(userId)}`;
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      apikey: config.supabase.serviceRoleKey,
+      Authorization: `Bearer ${config.supabase.serviceRoleKey}`,
+    },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (response.ok || response.status === 404) return { deleted: true };
+  const detail = await response.text();
+  console.error('[auth] admin delete user failed', response.status, detail.slice(0, 200));
+  throw new AuthError('Could not remove the sign-in record. Please contact support.', {
+    status: 502,
+    code: 'delete_failed',
+  });
+}
+
 module.exports = {
   AuthError,
   signUp,
@@ -330,4 +367,5 @@ module.exports = {
   adminSetPassword,
   sendEmailOtp,
   adminConfirmEmail,
+  adminDeleteUser,
 };

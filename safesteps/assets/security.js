@@ -431,6 +431,16 @@
     resetPassword: ({ email, code, password }, bot) =>
       api('/api/auth/reset-password', { method: 'POST', body: { email, code, password, ...bot } }),
     logout: () => api('/api/auth/logout', { method: 'POST', body: {} }),
+    /**
+     * Erase the signed-in user's server-side data (their rows only — the server
+     * calls a SECURITY DEFINER function that can only ever touch auth.uid()).
+     *
+     * This existed on the server and had no caller anywhere in the client, so a
+     * user had no way to exercise their right to erasure. A privacy policy that
+     * promises deletion while the app offers no way to do it is not a policy,
+     * it is a claim.
+     */
+    deleteAccount: () => api('/api/account/delete', { method: 'POST', body: {} }),
   };
 
   /* ------------------------------------------------------------------ */

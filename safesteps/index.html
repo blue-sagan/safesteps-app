@@ -1049,6 +1049,8 @@
           
           <button class="google-btn-secondary" style="margin-top:6px;" onclick="resendSavedInfoEmail()">📨 Email My Saved Account Information to Me</button>
           <button class="fa-more-btn" style="margin-top:10px; color:var(--red);" onclick="signOutSafeStepsAccount()">🚪 Sign Out of Account</button>
+          <button class="fa-more-btn" style="margin-top:10px; color:var(--red); border-color:var(--red);" onclick="deleteSafeStepsAccount()">🗑️ Delete My Account &amp; Server Data</button>
+          <p style="font-size:11.5px; color:var(--text-dim); margin:8px 0 0; line-height:1.5;">Deleting removes your account and everything SafeSteps stored on its server for you: reports, quiz results, family profile, vault and security log. It cannot be undone. Your progress saved on this device is not affected — see the <a href="./legal.html#your-data" style="color:var(--teal);">Privacy Policy</a>.</p>
         </div>
 
         <!-- PRIVACY PREFERENCES CARD -->
@@ -2266,6 +2268,7 @@
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn-teal" style="flex:1; padding:10px; font-size:12px;" onclick="runAccessibilityAudit()">🔍 Run Accessibility Audit (WAVE/aXe)</button>
           <button class="btn-teal" style="flex:1; padding:10px; font-size:12px; background:var(--card2); color:var(--text); border:1px solid var(--border);" onclick="openLegalDisclaimerModal()">⚖️ Legal Disclaimers</button>
+          <a class="btn-teal" href="./legal.html" style="flex:1; padding:10px; font-size:12px; background:var(--card2); color:var(--text); border:1px solid var(--border); text-align:center; text-decoration:none; min-height:40px; display:flex; align-items:center; justify-content:center;">🔒 Privacy &amp; Terms</a>
         </div>
       </div>
 
@@ -2770,7 +2773,15 @@
       <p style="margin:0 0 10px;"><b>1. Educational Awareness Only</b><br>SafeSteps is an educational road safety and civic awareness companion developed in collaboration with Kenya Scouts Association (Project 360° Shield). The content, rules, and guidelines provided within this application are intended solely to foster general public safety and child road awareness.</p>
       <p style="margin:0 0 10px;"><b>2. Not a Substitute for Official Regulations</b><br>This app does not replace official National Transport and Safety Authority (NTSA) traffic acts, formal driving instruction, or certified medical/first-aid training. Users must always comply with gazetted Kenya Traffic Acts and official enforcement officers.</p>
       <p style="margin:0 0 10px;"><b>3. Emergency Services &amp; SOS</b><br>The Emergency SOS feature provides one-tap telephone links (`112` / `999`) and SMS/location sharing with personal trusted contacts. SafeSteps does not run a private 24/7 dispatch monitoring center; emergency calls connect directly to Kenya National Police and Ambulance command centers.</p>
-      <p style="margin:0 0 10px;"><b>4. Whistleblower &amp; Anti-Corruption Integrity</b><br>Reports submitted via the Integrity Whistleblower portal (`#page-integrity`) are encrypted locally on your device and transmitted via standard email protocols to designated government agency desks (`report@eacc.go.ke`, `complaints@kenyapolice.go.ke`, `integrity@ntsa.go.ke`). SafeSteps guarantees strict client-side identity shielding when the anonymous toggle is selected.</p>
+      <p style="margin:0 0 10px;"><b>4. Whistleblower &amp; Anti-Corruption Integrity</b><br>Reports submitted via the Integrity Whistleblower portal are encrypted locally on your device and transmitted via standard email protocols to designated government agency desks (report@eacc.go.ke, complaints@kenyapolice.go.ke, integrity@ntsa.go.ke). SafeSteps guarantees strict client-side identity shielding when the anonymous toggle is selected.</p>
+      <p style="margin:0 0 10px;"><b>5. Privacy</b><br>Most of what you enter — including your medical note and trusted contact — stays on this device and is never uploaded. What is stored if you create an account, and how to delete it, is set out in full in the Privacy Policy.</p>
+      <p style="margin:0;"><b>6. Emergency</b><br>SafeSteps is not an emergency service and does not receive your SOS. The button dials 112 / 999 on your own phone.</p>
+    </div>
+    <!-- The full documents live on a separate page so they are linkable and can be
+         read without loading the app shell. -->
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <a href="./legal.html#privacy" style="flex:1; text-align:center; padding:12px; min-height:44px; border-radius:12px; background:var(--card2); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;">🔒 Privacy Policy</a>
+      <a href="./legal.html#terms" style="flex:1; text-align:center; padding:12px; min-height:44px; border-radius:12px; background:var(--card2); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;">📄 Terms of Use</a>
     </div>
     <button class="btn-teal" style="width:100%; padding:14px; font-size:14px; font-weight:700;" onclick="closeLegalDisclaimerModal()">I Understand &amp; Agree</button>
   </div>
@@ -9439,6 +9450,54 @@ function signOutSafeStepsAccount(){
     updateHeaderAccountBadge();
     showToast("Signed out of SafeSteps Account");
   }
+}
+
+/**
+ * Erase the signed-in user's server-side data.
+ *
+ * Two confirmations on purpose: this is irreversible and the button sits one
+ * tap away from Sign Out. The second prompt names what will be destroyed so it
+ * cannot be dismissed on muscle memory. If the network fails, nothing is
+ * deleted (the request never reached the server) and we say so rather than
+ * pretending it worked.
+ */
+function deleteSafeStepsAccount(){
+  if(!state.userAccount){
+    showToast("Sign in first — there is no server data to delete.");
+    return;
+  }
+  if(!confirm("Delete your SafeSteps account and ALL data SafeSteps stored on its server for you?\n\nThis cannot be undone.")){
+    return;
+  }
+  if(!confirm("Last check — permanently delete your account, community reports, quiz results and family profile?")){
+    return;
+  }
+  var btn = null;
+  SS.session.deleteAccount().then(function(){
+    state.userAccount = null;
+    state.cloudEmail = null;
+    state.googleDisplayName = null;
+    state.cloudUid = null;
+    localStorage.removeItem("safesteps_pending_email");
+    localStorage.removeItem("safesteps_profile");
+    pendingVerificationCode = null;
+    pendingAccountData = null;
+    persist();
+    renderAccountPage();
+    updateHeaderAccountBadge();
+    showToast("Your account and server data have been deleted.");
+  }).catch(function(error){
+    // Be precise about what did and did not happen — "something went wrong"
+    // after a deletion request is the worst possible message.
+    if(error && error.status === 401){
+      showToast("Your session had expired, so nothing was deleted. Please sign in and try again.");
+    }else if(error && error.code === "network_unavailable"){
+      showToast("No connection — nothing was deleted. Try again when you are online.");
+    }else{
+      showToast((error && error.message) || "Could not delete your account. Nothing was changed.");
+    }
+    if(btn) btn.disabled = false;
+  });
 }
 
 function showSystemEmailModal(record, gateway){
