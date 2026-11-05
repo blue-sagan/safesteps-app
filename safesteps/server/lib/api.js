@@ -432,6 +432,101 @@ async function handleForgot(req, res) {
   sendJson(res, 202, { status: 'sent', message: 'If that address has an account, a reset link is on its way.' });
 }
 
+/**
+ * Complete a password reset.
+ *
+ * Two routes, chosen by what the deployment has:
+ *
+ *   1. Recovery code (works whenever mail is configured). The code comes from
+ *      GoTrue, is single-use, and is exchanged for a short-lived session that is
+ *      used to set the new password. No service-role key.
+ *   2. Service-role route, for a deployment with no hook: our own verified
+ *      challenge, then the admin API sets the password.
+ *
+ * Either way the response is uniform, so this endpoint cannot be used to learn
+ * whether an address has an account.
+ */
+async function handleResetPassword(req, res) {
+  requireCapability('auth', AUTH_HINT);
+  const body = await guardSensitive(req, 'reset');
+  v.only(body, ['email', 'code', 'password', 'website', 'botChallenge', 'botNonce']);
+
+  const email = v.cleanEmail(body.email);
+  const code = v.cleanOtp(body.code);
+  const newPassword = v.cleanPassword(body.password);
+
+  // Per-address limit: the same cap as login, so reset cannot be used to brute
+  // force a code or to grief a single account.
+  await rateLimit.enforce('reset', `email:${email}`);
+
+  const uniformFailure = () => {
+    const err = new Error('That reset code is not correct or has expired. Request a new one.');
+    err.status = 400;
+    err.code = 'invalid_code';
+    // Deliberately identical for "no such code", "wrong code" and "no account".
+    return err;
+  };
+
+  // Route 1 — GoTrue recovery code.
+  if (sendEmailHook.isConfigured()) {
+    let tokens;
+    try {
+      tokens = await auth.verifyRecovery({ email, token: code });
+    } catch {
+      db.query('INSERT INTO security_audit (event, detail, created_at) VALUES (?, ?, ?)', [
+        'reset_failed',
+        clientIpHash(req),
+        Date.now(),
+      ]);
+      throw uniformFailure();
+    }
+    try {
+      await auth.updatePassword({ accessToken: tokens.access_token, password: newPassword });
+    } catch (error) {
+      console.error('[reset] password update failed:', error.message);
+      const err = new Error('Your code was accepted but the password could not be changed. Try again.');
+      err.status = 502;
+      err.code = 'reset_incomplete';
+      throw err;
+    }
+    // Do not hand out a session from a reset: the user signs in deliberately,
+    // so a stolen reset code cannot also become a live session in the attacker's
+    // browser without the password being typed again.
+    session.clearSessionCookies(res);
+    sendJson(res, 200, { status: 'reset', message: 'Password updated. You can now sign in.' });
+    return;
+  }
+
+  // Route 2 — our own challenge + admin API.
+  const result = verification.verifyChallenge({ email, code });
+  if (!result.ok) throw uniformFailure();
+
+  let userId = result.userId;
+  if (!userId) userId = await verification.lookupUserIdByEmail(email);
+
+  if (!config.supabase.serviceRoleKey) {
+    const err = new Error('Password recovery is not configured on this server.');
+    err.status = 503;
+    err.code = 'reset_unavailable';
+    err.expose = true;
+    throw err;
+  }
+  if (!userId) throw uniformFailure();
+
+  try {
+    await auth.adminSetPassword({ userId, password: newPassword });
+  } catch (error) {
+    console.error('[reset] admin password update failed:', error.message);
+    const err = new Error('The password could not be changed. Please try again.');
+    err.status = 502;
+    err.code = 'reset_incomplete';
+    throw err;
+  }
+
+  session.clearSessionCookies(res);
+  sendJson(res, 200, { status: 'reset', message: 'Password updated. You can now sign in.' });
+}
+
 async function handleResend(req, res) {
   const body = await guardSensitive(req, 'forgot');
   v.only(body, ['email', 'website', 'botChallenge', 'botNonce']);
@@ -922,6 +1017,7 @@ async function handle(req, res, url) {
     'GET /api/auth/me': handleMe,
     'POST /api/auth/forgot': handleForgot,
     'POST /api/auth/resend': handleResend,
+    'POST /api/auth/reset-password': handleResetPassword,
     'POST /api/reports': handleCreateReport,
     'GET /api/reports': handleListReports,
     'POST /api/quiz-attempts': handleQuizAttempt,

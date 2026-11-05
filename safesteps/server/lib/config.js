@@ -160,6 +160,9 @@ const config = {
       register: [5, 60 * 60 * 1000],
       verify: [10, 15 * 60 * 1000],
       forgot: [5, 60 * 60 * 1000],
+      // Completing a reset is a code-guessing surface, so it is capped tighter
+      // than login rather than looser.
+      reset: [5, 15 * 60 * 1000],
       api: [300, 60 * 1000],
       upload: [30, 60 * 1000],
       global: [1200, 60 * 1000],

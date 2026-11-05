@@ -992,6 +992,26 @@
           </div>
           <button class="btn-teal" style="width:100%; padding:15px; font-size:15.5px; font-weight:800; border-radius:12px;" onclick="signInToSafeStepsAccount()">Sign In Securely →</button>
           <p style="font-size:11.5px; color:var(--text-dim); margin:10px 0 0; line-height:1.5;">Your password is sent over TLS to the SafeSteps server and hashed there. It is never stored in this browser.</p>
+          <button type="button" onclick="showPasswordReset()" style="background:none; border:none; color:var(--teal); font-weight:700; font-size:12px; cursor:pointer; margin-top:10px; padding:4px 0;">Forgot your password?</button>
+        </div>
+
+        <!-- Password reset: request a code, then set a new password. -->
+        <div id="passwordResetPanel" style="display:none; margin-top:14px; border-left:4px solid #F2913B;" class="google-account-card">
+          <h3 style="font-size:15.5px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:8px;"><span>🔐</span> Reset your password</h3>
+          <div id="passwordResetRequestStep">
+            <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px; line-height:1.5;">Enter the email address on your account. If it exists, we will send a reset code. We never reveal whether an address is registered.</p>
+            <input id="resetEmailInput" type="email" autocomplete="username" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text); margin-bottom:12px;">
+            <button class="btn-teal" style="width:100%; padding:14px; font-size:15px; font-weight:800; border-radius:12px;" onclick="requestPasswordResetCode()">Send reset code →</button>
+          </div>
+          <div id="passwordResetConfirmStep" style="display:none;">
+            <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px; line-height:1.5;">Enter the code from your email, then choose a new password (6 to 8 characters, with a letter and a number).</p>
+            <label for="resetCodeInput" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Reset code:</label>
+            <input id="resetCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="8-digit code" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text); margin-bottom:12px; letter-spacing:2px;">
+            <label for="resetNewPasswordInput" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">New password:</label>
+            <input id="resetNewPasswordInput" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text); margin-bottom:12px;">
+            <button class="btn-teal" style="width:100%; padding:14px; font-size:15px; font-weight:800; border-radius:12px;" onclick="submitPasswordReset()">Set new password →</button>
+          </div>
+          <button type="button" onclick="hidePasswordReset()" style="background:none; border:none; color:var(--text-dim); font-weight:700; font-size:12px; cursor:pointer; margin-top:10px; padding:4px 0;">← Back to sign in</button>
         </div>
       </div>
 
@@ -9213,6 +9233,70 @@ function resendAccountCode(isOnboarding){
 }
 
 /* ---------------- SIGN-IN ---------------- */
+/* ---------------- PASSWORD RESET ---------------- */
+/* Two steps: request a code, then exchange it for a new password. The server
+   returns the same response whether or not the address has an account, so the
+   UI must not promise more than that either. */
+function showPasswordReset(){
+  const panel = document.getElementById("passwordResetPanel");
+  if(!panel) return;
+  panel.style.display = "block";
+  const email = document.getElementById("signInEmail");
+  const target = document.getElementById("resetEmailInput");
+  if(email && target && email.value) target.value = email.value.trim();
+  document.getElementById("passwordResetRequestStep").style.display = "block";
+  document.getElementById("passwordResetConfirmStep").style.display = "none";
+}
+function hidePasswordReset(){
+  const panel = document.getElementById("passwordResetPanel");
+  if(panel) panel.style.display = "none";
+}
+async function requestPasswordResetCode(){
+  if(serverCapabilities && serverCapabilities.auth === false){
+    showToast("Accounts are not enabled on this server yet.");
+    return;
+  }
+  const emailEl = document.getElementById("resetEmailInput");
+  const email = SS.input.email(emailEl ? emailEl.value : "");
+  if(!email){ showToast("Enter the email address on your account."); return; }
+  try{
+    const bot = await SS.botProof();
+    await SS.session.requestPasswordReset(email, bot);
+    document.getElementById("passwordResetRequestStep").style.display = "none";
+    document.getElementById("passwordResetConfirmStep").style.display = "block";
+    showToast("If that address has an account, a reset code is on its way.");
+  }catch(err){
+    showToast("⚠️ " + (err && err.message ? err.message : "Could not start the reset."));
+    SS.resetBotChallenge();
+  }
+}
+async function submitPasswordReset(){
+  const emailEl  = document.getElementById("resetEmailInput");
+  const codeEl   = document.getElementById("resetCodeInput");
+  const passEl   = document.getElementById("resetNewPasswordInput");
+  const email    = SS.input.email(emailEl ? emailEl.value : "");
+  const code     = SS.input.code(codeEl ? codeEl.value : "");
+  const password = SS.input.password(passEl ? passEl.value : "");
+
+  if(!email){ showToast("Enter the email address on your account."); return; }
+  if(!code){ showToast("Enter the 8-digit code from your email."); return; }
+  if(!password.ok){ showToast(password.message); return; }
+
+  try{
+    const bot = await SS.botProof();
+    await SS.session.resetPassword({ email, code, password: password.value }, bot);
+    if(codeEl) codeEl.value = "";
+    if(passEl) passEl.value = "";  // clear the plaintext from the DOM
+    hidePasswordReset();
+    showToast("✅ Password updated. You can sign in now.");
+    const signInPass = document.getElementById("signInPassword");
+    if(signInPass) signInPass.focus();
+  }catch(err){
+    showToast("⚠️ " + (err && err.message ? err.message : "That reset could not be completed."));
+    SS.resetBotChallenge();
+  }
+}
+
 async function signInToSafeStepsAccount(){
   if(serverCapabilities && serverCapabilities.auth === false){
     showToast("Accounts are not enabled on this server yet. Ask the administrator to configure it.");

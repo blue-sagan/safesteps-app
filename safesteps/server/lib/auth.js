@@ -14,6 +14,7 @@
  */
 
 const config = require('./config');
+const v = require('./validate');
 
 class AuthError extends Error {
   constructor(message, { status = 400, code = 'auth_error' } = {}) {
@@ -176,6 +177,64 @@ async function verifyEmailOtp({ email, token }) {
  * which lives in this process only. Used after our server validates the
  * single-use code it mailed out itself.
  */
+/**
+ * Exchange a recovery code for a session.
+ *
+ * GoTrue's recovery flow is a link that lands back in the app with a token; the
+ * token is single-use. We accept the code the user was mailed and turn it into a
+ * short-lived session, then immediately use that session to set a new password —
+ * so the reset never needs the service-role key.
+ */
+async function verifyRecovery({ email, token }) {
+  return call('/verify', { body: { type: 'recovery', email, token } });
+}
+
+/**
+ * Set a new password using the caller's own session. The auth service checks the
+ * bearer token, so this can only ever change the password of the account that
+ * just proved control of the mailbox.
+ */
+async function updatePassword({ accessToken, password }) {
+  // Same policy as sign-up: one validator, so the two cannot drift apart.
+  const checked = v.cleanPassword(password);
+  return call('/user', {
+    method: 'PUT',
+    accessToken,
+    body: { password: checked },
+  });
+}
+
+/** Admin route: set a password for a specific user (needs the service-role key). */
+async function adminSetPassword({ userId, password }) {
+  if (!config.supabase.serviceRoleKey) {
+    throw new AuthError('Password recovery is not configured on this server.', {
+      status: 503,
+      code: 'reset_unavailable',
+    });
+  }
+  const url = `${config.supabase.url}/auth/v1/admin/users/${encodeURIComponent(userId)}`;
+  const checked = v.cleanPassword(password);
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      apikey: config.supabase.serviceRoleKey,
+      Authorization: `Bearer ${config.supabase.serviceRoleKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password: checked }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error('[auth] admin set password failed', response.status, detail.slice(0, 200));
+    throw new AuthError('Could not update the password. Please try again.', {
+      status: 502,
+      code: 'reset_failed',
+    });
+  }
+  return response.json();
+}
+
 async function adminConfirmEmail(userId) {
   if (!config.supabase.serviceRoleKey) {
     throw new AuthError('Verification service is not configured.', { status: 503, code: 'verify_unavailable' });
@@ -212,6 +271,9 @@ module.exports = {
   getUser,
   resendConfirmation,
   verifyEmailOtp,
+  verifyRecovery,
+  updatePassword,
+  adminSetPassword,
   sendEmailOtp,
   adminConfirmEmail,
 };

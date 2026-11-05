@@ -426,6 +426,10 @@
     register: (payload, bot) => api('/api/auth/register', { method: 'POST', body: { ...payload, ...bot } }),
     verify: (email, code, bot) => api('/api/auth/verify', { method: 'POST', body: { email, code, ...bot } }),
     resend: (email, bot) => api('/api/auth/resend', { method: 'POST', body: { email, ...bot } }),
+    requestPasswordReset: (email, bot) =>
+      api('/api/auth/forgot', { method: 'POST', body: { email, ...bot } }),
+    resetPassword: ({ email, code, password }, bot) =>
+      api('/api/auth/reset-password', { method: 'POST', body: { email, code, password, ...bot } }),
     logout: () => api('/api/auth/logout', { method: 'POST', body: {} }),
   };
 
