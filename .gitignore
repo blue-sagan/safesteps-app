@@ -36,6 +36,12 @@ Thumbs.db
 .vscode/
 *.swp
 
+# ---- Backups: may contain user data, never commit ----
+backups/
+*.jsonl
+*.dump
+*.sql.gz
+
 # ---- Security tooling output ----
 audit-report.json
 security-report.json
