@@ -18,11 +18,29 @@ safesteps/                 the PWA itself (static, offline-first)
   data/*.json              bundled safety datasets
   supabase/migrations/     database schema: tables, RLS, triggers, grants
   server/                  the trusted server (secrets + API live here only)
+legal.html                 privacy policy + terms (standalone, no JS needed)
 scripts/security-audit.sh  secrets + dependency + header + regression checks
 scripts/verify-deployment.sh  the same gate, against a running/deployed origin
+scripts/smoke-test.js      drives the running server under realistic load
+scripts/check-mobile.js    layout audit across 8 phone sizes × every screen
+scripts/check-release.js   pre-deploy gate (cache busting, pre-cached assets)
+scripts/db-backup.sh       snapshot every table + schema + checksummed manifest
+scripts/db-restore-test.sh verify a backup really restores (offline, or to a scratch DB)
+scripts/db-usage.sh        size, dead tuples, long queries, backup age
 scripts/connect-emailjs-supabase.sh  EmailJS via Supabase's Send Email Hook (recommended)
 SECURITY.md                what was hardened, and how to verify it
+docs/                      the operational runbooks (see below)
 ```
+
+### Runbooks
+
+| Document | Use it when |
+| --- | --- |
+| `docs/BACKUP-AND-RECOVERY.md` | taking, verifying or restoring a backup; the deletion guard |
+| `docs/ROLLBACK.md` | a release went wrong (server, service worker, database, config) |
+| `docs/FREE-PLAN-LIMITS.md` | a quota, a pause, or the app "went read-only" |
+| `docs/MONITORING.md` | setting up alerts; what is measured and what is not |
+| `docs/LEGAL.md` | the privacy/terms pages, erasure, and why there is no payment integration |
 
 ## Running locally
 
@@ -73,13 +91,21 @@ route. Without the hook, the fallback generates its own code and needs
 ## Tests and audit
 
 ```bash
-cd safesteps/server && npm test                  # 55 behavioural security tests
+cd safesteps/server && npm test                  # 85 behavioural tests
 ./scripts/security-audit.sh                      # secrets in tree+history, deps, headers, tests
-./scripts/verify-deployment.sh http://localhost:8080   # 36 checks against a *running* server
+./scripts/verify-deployment.sh http://localhost:8080   # config + headers against a *running* server
+./scripts/smoke-test.js http://localhost:8080    # launch-day simulation: load, abuse, offline shell
+node scripts/check-mobile.js                     # layout on 8 phone viewports × all screens
+node scripts/check-release.js --since origin/main # cache-bust + pre-cached-asset gate
 ```
 
-The audit exits non-zero on failure and runs in CI
-(`.github/workflows/security.yml`) on every push, every PR, and weekly.
+The audit exits non-zero on failure and runs in CI on every push, every PR, and
+weekly: `.github/workflows/security.yml` (secrets, headers) and
+`.github/workflows/tests.yml` (tests on Node 20 and 22, client syntax, mobile
+layout, release gate). `check-release.js` is the one that catches the mistake
+that actually bites — an app-shell change without a `CACHE_VERSION` bump, after
+which every existing install keeps serving the old HTML and a rollback is
+silently ignored.
 `verify-deployment.sh` is the same gate for a deployed origin: point it at the
 public URL and it checks headers, CSP nonces, cookie flags, exposure, traversal
 and auth on the live server, not on the source.
