@@ -184,7 +184,9 @@
   .brand-name{font-size:19px; font-weight:700; margin:0; letter-spacing:-0.01em;}
   .brand-sub{font-size:12px; color:var(--text-dim); margin:0;}
   .gear-btn{
-    width:37px; height:37px; border-radius:50%; border:1px solid var(--border); background:var(--card);
+    /* 44px: the WCAG 2.5.5 / Apple HIG minimum. It was 37px, which is a
+       mis-tap waiting to happen on a phone held in one hand. */
+    width:44px; height:44px; border-radius:50%; border:1px solid var(--border); background:var(--card);
     color:var(--text); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer;
     transition:transform .15s ease, background-color .15s ease; box-shadow:var(--shadow-sm);
   }
@@ -192,7 +194,8 @@
   .back-row{display:flex; align-items:center; gap:12px;}
   .back-btn{
     background:var(--card); border:1px solid var(--border); font-size:17px; color:var(--text); cursor:pointer;
-    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    /* 44px minimum tap target; was 34px. */
+    width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
     transition:transform .15s ease;
   }
   .back-btn:active{transform:scale(.9);}
@@ -216,11 +219,12 @@
   .ai-chat-bar .chat-ic{ font-size:17px; flex-shrink:0; }
   .ai-chat-bar input{
     flex:1; border:none; outline:none; background:transparent; color:var(--text); font-family:'Inter',sans-serif;
-    font-size:13.5px; padding:8px 0;
+    font-size:16px; padding:8px 0;
   }
   .ai-chat-bar input::placeholder{ color:var(--text-dim); }
   .ai-chat-bar .chat-send-btn{
-    width:38px; height:38px; border-radius:50%; border:none; background:var(--teal); color:#062f24;
+    /* 44px minimum tap target; was 38px. */
+    width:44px; height:44px; border-radius:50%; border:none; background:var(--teal); color:#062f24;
     font-size:15px; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
   }
 
@@ -457,7 +461,7 @@
   .hazard-tile.selected{border-color:var(--red); background:#EF444414; color:var(--red);}
   textarea.report-note{
     width:100%; padding:13px 14px; border-radius:14px; border:1px solid var(--border); background:var(--card);
-    color:var(--text); font-family:'Inter',sans-serif; font-size:13px; margin-bottom:14px; resize:vertical;
+    color:var(--text); font-family:'Inter',sans-serif; font-size:16px; margin-bottom:14px; resize:vertical;
   }
   .report-item{
     background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 14px; margin-bottom:8px;
@@ -489,7 +493,7 @@
   .post-comment-row{display:flex; gap:8px; margin-top:8px;}
   .post-comment-row input{
     flex:1; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--card2);
-    color:var(--text); font-family:'Inter',sans-serif; font-size:12.5px;
+    color:var(--text); font-family:'Inter',sans-serif; font-size:16px;
   }
   .post-comment-row button{
     border:none; border-radius:12px; background:var(--teal); color:#062f24; padding:0 14px;
@@ -554,14 +558,16 @@
   .contact-left b{display:block; font-size:13.5px;}
   .contact-left span{font-size:11.5px; color:var(--text-dim);}
   .contact-call{
-    width:36px; height:36px; border-radius:50%; background:var(--card2); display:flex; align-items:center; justify-content:center;
+    /* 44px minimum tap target; was 36px. This one dials an emergency contact,
+       so a mis-tap is the worst possible place to save 8 pixels. */
+    width:44px; height:44px; border-radius:50%; background:var(--card2); display:flex; align-items:center; justify-content:center;
     color:var(--red); font-size:14px; text-decoration:none; flex-shrink:0;
   }
   .contacts-card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:6px 14px; margin-bottom:16px;}
 
   select.county-inline{
     background:var(--card2); border:1px solid var(--border); color:var(--text); font-family:'Inter',sans-serif;
-    font-size:11.5px; font-weight:700; border-radius:10px; padding:6px 8px; max-width:120px;
+    font-size:16px; font-weight:700; border-radius:10px; padding:6px 8px; max-width:120px;
   }
   .county-note{font-size:10.5px; color:var(--text-dim); padding:0 4px 10px; line-height:1.5;}
 
@@ -605,7 +611,7 @@
   .toggle input:checked + .tslider::before{transform:translateX(18px); background:#062f24;}
   .settings-block input, .settings-block select{
     width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:var(--card2);
-    color:var(--text); font-family:'Inter',sans-serif; font-size:13px; margin-bottom:10px;
+    color:var(--text); font-family:'Inter',sans-serif; font-size:16px; margin-bottom:10px;
   }
   .about-link{display:flex; align-items:center; gap:8px; color:var(--teal); font-weight:700; font-size:13px; cursor:pointer;}
 
@@ -804,17 +810,17 @@
       
       <div style="margin-bottom:12px;">
         <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Full Name:</label>
-        <input id="onbFullName" type="text" placeholder="e.g. David Kamau" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+        <input id="onbFullName" type="text" placeholder="e.g. David Kamau" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);">
       </div>
 
       <div style="margin-bottom:12px;">
         <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Email Address:</label>
-        <input id="onbEmail" type="email" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+        <input id="onbEmail" type="email" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);">
       </div>
 
       <div style="margin-bottom:12px;">
         <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Create Password:</label>
-        <input id="onbPassword" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+        <input id="onbPassword" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);">
       </div>
 
       <!-- Honeypot: hidden from humans, irresistible to form-scraping bots. -->
@@ -926,17 +932,17 @@
           
           <div style="margin-bottom:12px;">
             <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Full Name:</label>
-            <input id="accFullName" type="text" placeholder="e.g. David Kamau" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+            <input id="accFullName" type="text" placeholder="e.g. David Kamau" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);">
           </div>
 
           <div style="margin-bottom:12px;">
             <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Email Address:</label>
-            <input id="accEmail" type="email" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+            <input id="accEmail" type="email" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);">
           </div>
 
           <div style="margin-bottom:12px;">
             <label style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Create Password:</label>
-            <input id="accPassword" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+            <input id="accPassword" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);">
           </div>
 
           <!-- Honeypot: hidden from humans, irresistible to form-scraping bots. -->
@@ -984,11 +990,11 @@
           <p style="font-size:13px; color:var(--text-dim); margin:0 0 14px; line-height:1.5;">Sign in to sync your badges and encrypted vault across devices. Sign-in is rate-limited and protected against automated guessing by the SafeSteps server.</p>
           <div style="margin-bottom:12px;">
             <label for="signInEmail" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Email Address:</label>
-            <input id="signInEmail" type="email" autocomplete="username" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);">
+            <input id="signInEmail" type="email" autocomplete="username" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);">
           </div>
           <div style="margin-bottom:16px;">
             <label for="signInPassword" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Password:</label>
-            <input id="signInPassword" type="password" autocomplete="current-password" placeholder="Your password" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text);" onkeydown="if(event.key==='Enter') signInToSafeStepsAccount()">
+            <input id="signInPassword" type="password" autocomplete="current-password" placeholder="Your password" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text);" onkeydown="if(event.key==='Enter') signInToSafeStepsAccount()">
           </div>
           <button class="btn-teal" style="width:100%; padding:15px; font-size:15.5px; font-weight:800; border-radius:12px;" onclick="signInToSafeStepsAccount()">Sign In Securely →</button>
           <p style="font-size:11.5px; color:var(--text-dim); margin:10px 0 0; line-height:1.5;">Your password is sent over TLS to the SafeSteps server and hashed there. It is never stored in this browser.</p>
@@ -1000,15 +1006,15 @@
           <h3 style="font-size:15.5px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:8px;"><span>🔐</span> Reset your password</h3>
           <div id="passwordResetRequestStep">
             <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px; line-height:1.5;">Enter the email address on your account. If it exists, we will send a reset code. We never reveal whether an address is registered.</p>
-            <input id="resetEmailInput" type="email" autocomplete="username" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text); margin-bottom:12px;">
+            <input id="resetEmailInput" type="email" autocomplete="username" placeholder="e.g. david.kamau@gmail.com" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text); margin-bottom:12px;">
             <button class="btn-teal" style="width:100%; padding:14px; font-size:15px; font-weight:800; border-radius:12px;" onclick="requestPasswordResetCode()">Send reset code →</button>
           </div>
           <div id="passwordResetConfirmStep" style="display:none;">
             <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px; line-height:1.5;">Enter the code from your email, then choose a new password (6 to 8 characters, with a letter and a number).</p>
             <label for="resetCodeInput" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">Reset code:</label>
-            <input id="resetCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="8-digit code" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text); margin-bottom:12px; letter-spacing:2px;">
+            <input id="resetCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="8-digit code" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text); margin-bottom:12px; letter-spacing:2px;">
             <label for="resetNewPasswordInput" style="font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:4px;">New password:</label>
-            <input id="resetNewPasswordInput" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:14.5px; color:var(--text); margin-bottom:12px;">
+            <input id="resetNewPasswordInput" type="password" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6 to 8 characters (letters + numbers)" style="width:100%; padding:13px; border:1px solid var(--border); background:var(--card2); border-radius:12px; font-size:16px; color:var(--text); margin-bottom:12px;">
             <button class="btn-teal" style="width:100%; padding:14px; font-size:15px; font-weight:800; border-radius:12px;" onclick="submitPasswordReset()">Set new password →</button>
           </div>
           <button type="button" onclick="hidePasswordReset()" style="background:none; border:none; color:var(--text-dim); font-weight:700; font-size:12px; cursor:pointer; margin-top:10px; padding:4px 0;">← Back to sign in</button>
@@ -1423,11 +1429,11 @@
 
         <div class="section-label">2. Location &amp; Officer details</div>
         <button class="loc-btn" onclick="useIntegrityLocation()" id="integrityLocBtn" type="button" style="margin-bottom:10px;">📍 Auto-Capture GPS &amp; Highway Landmark</button>
-        <input type="text" id="integrityLandmarkInput" placeholder="Specific road, roadblock stage, or county junction" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:13.5px; margin-bottom:12px;">
+        <input type="text" id="integrityLandmarkInput" placeholder="Specific road, roadblock stage, or county junction" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px; margin-bottom:12px;">
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
-          <input type="text" id="integrityOfficerName" placeholder="Officer Name / Badge # (if visible)" style="padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:13px;">
-          <input type="text" id="integrityVehiclePlate" placeholder="Patrol / NTSA Plate (e.g. GKB 123A)" style="padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:13px;">
+          <input type="text" id="integrityOfficerName" placeholder="Officer Name / Badge # (if visible)" style="padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px;">
+          <input type="text" id="integrityVehiclePlate" placeholder="Patrol / NTSA Plate (e.g. GKB 123A)" style="padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px;">
         </div>
 
         <div class="section-label">3. Detailed Incident Description</div>
@@ -1726,8 +1732,8 @@
         <p style="font-size:11.5px; color:var(--text-dim); margin:0 0 10px;">Point-to-point routing between known Embu landmarks — works with zero internet connection. This is a small sample map, not full street coverage yet; see Settings → About for details.</p>
         <div id="routeGraphNote" class="post-meta" style="margin-bottom:8px; display:none;"></div>
         <div style="display:flex; gap:8px; margin-bottom:8px;">
-          <select id="routeFromSelect" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:13px;"></select>
-          <select id="routeToSelect" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:13px;"></select>
+          <select id="routeFromSelect" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:16px;"></select>
+          <select id="routeToSelect" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:16px;"></select>
         </div>
         <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-bottom:10px;">
           <input type="checkbox" id="avoidHazardsToggle" checked onchange="planOfflineRoute()"> 🛡️ Prefer routes that avoid known hazard spots
@@ -1750,7 +1756,7 @@
       <div class="badge-row" id="chatbotChips" style="margin-top:0;"></div>
       <div id="chatbotThread" style="margin:14px 0; display:flex; flex-direction:column; gap:10px;"></div>
       <div style="display:flex; gap:8px;">
-        <input type="text" id="chatbotInput" placeholder="e.g. What do I do at a matatu stage?" style="flex:1; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:13px;" onkeydown="if(event.key==='Enter') askChatbot()">
+        <input type="text" id="chatbotInput" placeholder="e.g. What do I do at a matatu stage?" style="flex:1; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:16px;" onkeydown="if(event.key==='Enter') askChatbot()">
         <button class="btn-teal" style="width:auto; padding:12px 18px;" onclick="askChatbot()">Ask</button>
       </div>
     </section>
@@ -1767,7 +1773,7 @@
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
           <span style="font-size:11px; font-weight:700; background:rgba(239,68,68,0.2); border:1px solid #EF4444; color:#FF8A80; padding:4px 10px; border-radius:999px;">💥 Live Accidents Feed</span>
-          <span style="font-size:11px; font-weight:700; background:rgba(46,123,246,0.2); border:1px solid #2E7BF6; color:#90CAF9; padding:4px 10px; border-radius:999px;">🌦️ Live Weather Radar <span style="font-size:9px; opacity:0.8;">[Verified: KMD + WMO + Open-Meteo]</span></span>
+          <span style="font-size:11px; font-weight:700; background:rgba(46,123,246,0.2); border:1px solid #2E7BF6; color:#90CAF9; padding:4px 10px; border-radius:999px;">🌦️ Live Weather Radar <span style="font-size:10px; opacity:0.85;">[Verified: KMD + WMO + Open-Meteo]</span></span>
         </div>
       </div>
 
@@ -1975,7 +1981,7 @@
       </div>
 
       <div style="margin-bottom:14px;">
-        <input type="text" id="rightsSearchInput" placeholder="🔍 Search rights, penalties, or regulations (e.g. zebra crossing, speed limit, bribe, helmet, 30 km/h)…" style="width:100%; padding:14px; border-radius:14px; border:2px solid var(--teal); background:var(--card); color:var(--text); font-size:14px;" oninput="searchRoadRights(this.value)">
+        <input type="text" id="rightsSearchInput" placeholder="🔍 Search rights, penalties, or regulations (e.g. zebra crossing, speed limit, bribe, helmet, 30 km/h)…" style="width:100%; padding:14px; border-radius:14px; border:2px solid var(--teal); background:var(--card); color:var(--text); font-size:16px;" oninput="searchRoadRights(this.value)">
       </div>
 
       <div class="pill-row" id="rightsCategoryTabs" style="flex-wrap:wrap; margin-bottom:16px; gap:6px;">
@@ -2332,7 +2338,7 @@
         <h3>🔄 Sync Across Devices</h3>
         <div class="desc">There's no SafeSteps server — sync works by moving a share code directly between devices, by QR or by copy/paste. Nothing passes through the internet.</div>
         <div style="font-size:12px; font-weight:700; margin-bottom:6px;">Send a profile</div>
-        <select id="syncExportSelect" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:13px; margin-bottom:8px;"></select>
+        <select id="syncExportSelect" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:16px; margin-bottom:8px;"></select>
         <button class="btn-teal" onclick="generateSyncCode()">📤 Generate Share Code</button>
         <div id="syncExportResult" style="margin-top:10px;"></div>
 
@@ -2471,7 +2477,7 @@
         <b style="font-size:15px; color:var(--text); display:block; margin-bottom:6px;">🧑‍🏫 Classroom Student Roster &amp; Badges</b>
         <p style="font-size:12px; color:var(--text-dim); margin:0 0 12px;">Add your classroom students below to track their road safety quiz scores and pioneer badges offline on this device:</p>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
-          <input type="text" id="newStudentNameInput" placeholder="Student Name (e.g. Joy Wanjiku)" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:13px;">
+          <input type="text" id="newStudentNameInput" placeholder="Student Name (e.g. Joy Wanjiku)" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px;">
           <button class="btn-teal" style="width:auto; padding:10px 14px; font-size:13px;" onclick="addCurriculumStudent()">+ Add Student</button>
         </div>
         <div id="curriculumStudentList" style="max-height:300px; overflow-y:auto;"></div>
@@ -2489,7 +2495,7 @@
         <b style="font-size:15px; color:var(--text); display:block; margin-bottom:6px;">🔍 Quick SACCO Safety Rating Lookup</b>
         <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px;">Search any registered Matatu SACCO or fleet to verify their speed governor compliance status and customer care hotline:</p>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
-          <input type="text" id="saccoLookupInput" placeholder="e.g. 2NOK SACCO, Kukena, Super Metro, Embu Neno" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:13px;" oninput="searchMatatuSacco(this.value)">
+          <input type="text" id="saccoLookupInput" placeholder="e.g. 2NOK SACCO, Kukena, Super Metro, Embu Neno" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px;" oninput="searchMatatuSacco(this.value)">
         </div>
         <div id="saccoLookupResults"></div>
       </div>
@@ -2533,7 +2539,7 @@
       <div class="google-account-card" style="margin-bottom:14px; border-left:3px solid #00A344;">
         <h3 style="font-size:15px; font-weight:800; margin:0 0 8px;">✏️ Editable Inspection Plan (FM-1 Reference)</h3>
         <p style="font-size:12px; color:var(--text-dim); margin:0 0 10px;">Edit this checklist to track your own pre-trip/post-trip inspection plan. Changes are saved locally.</p>
-        <textarea id="editableFmPlan" rows="3" placeholder="My inspection steps: check brakes, lights, tires..." style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:13px; resize:vertical;"></textarea>
+        <textarea id="editableFmPlan" rows="3" placeholder="My inspection steps: check brakes, lights, tires..." style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px; resize:vertical;"></textarea>
         <button class="btn-teal" onclick="saveEditableFmPlan()" style="margin-top:10px; padding:10px 14px; font-size:13px; width:auto;">💾 Save Plan</button>
         <span id="fmPlanSavedMsg" style="font-size:11px; color:#00A344; margin-left:8px; display:none;">Plan saved locally.</span>
       </div>
@@ -3094,7 +3100,7 @@ function generateSyncCode(){
   // is base64 of user-controlled JSON, and dropping it inside a quoted inline
   // handler would let `'` or `</textarea>` escape into markup.
   resultEl.innerHTML = `
-    <textarea class="report-note" id="syncExportCodeArea" rows="3" readonly style="font-size:10.5px; font-family:monospace; margin-bottom:8px;"></textarea>
+    <textarea class="report-note" id="syncExportCodeArea" rows="3" readonly style="font-size:16px; font-family:monospace; margin-bottom:8px;"></textarea>
     <button class="fa-more-btn" type="button" id="syncCopyCodeBtn">📋 Copy Code</button>
     <div id="syncQrHolder" style="margin-top:10px; display:flex; justify-content:center;"></div>
   `;

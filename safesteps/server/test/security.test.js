@@ -271,7 +271,20 @@ test('missing configuration degrades with an actionable 503, not a crash', async
   // This run has no SUPABASE_* credentials, so auth endpoints must explain
   // themselves rather than throwing an opaque 500.
   const health = await (await fetch(`${base}/healthz`)).json();
-  assert.equal(health.status, 'ok');
+
+  // The process is serving, so this is never 'unavailable'. It says 'degraded'
+  // when something it needs is missing — which is the case in this test run.
+  // (The status used to be a flat 'ok' regardless, which made the health check
+  // unable to distinguish "fine" from "cannot sign anyone in".)
+  assert.notEqual(health.status, 'unavailable');
+  assert.ok(['ok', 'degraded'].includes(health.status), health.status);
+  assert.equal(health.status, 'degraded');
+
+  // Platform reachability must be reported, and must be a boolean — this is the
+  // field an uptime monitor alerts on when a free-plan project is paused.
+  assert.equal(typeof health.platform, 'object');
+  assert.equal(typeof health.platform.reachable, 'boolean');
+  assert.equal(typeof health.platform.reason, 'string');
 
   // Degraded because no service-role key / data key — auth itself is configured
   // in this test run, so capabilities must reflect each piece separately.

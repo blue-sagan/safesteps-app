@@ -195,7 +195,9 @@ latest bundle) so corruption is caught the same day, not on the day you need it.
 
 ## 5. Monitoring database usage
 
-The free plan pauses a project that exceeds limits. Detect it before users do:
+The free plan pauses a project after seven days of low activity — pausing is an
+inactivity mechanism, not a size limit (see docs/FREE-PLAN-LIMITS.md). Detect
+trouble before users do:
 
 ```sql
 -- database size against the free-plan 500 MB ceiling

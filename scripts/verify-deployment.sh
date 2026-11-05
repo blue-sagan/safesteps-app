@@ -41,7 +41,27 @@ fi
 pass "/healthz responded"
 
 STATUS="$(printf '%s' "$HEALTH_JSON" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')"
-[ "$STATUS" = "ok" ] && pass "status: ok" || fail "status: ${STATUS:-unknown}"
+case "$STATUS" in
+  ok) pass "status: ok" ;;
+  # 'degraded' is a legitimate answer: SafeSteps is offline-first, so the server
+  # keeps serving the whole offline app even when the database behind it is
+  # unreachable. It is a warning for the operator, not a failed deployment.
+  degraded) warn "status: degraded — the process is serving, but something upstream is not (see platform below)" ;;
+  *) fail "status: ${STATUS:-unknown}" ;;
+esac
+
+# The platform probe is the part that decides whether sign-in can work at all.
+PLATFORM_REACHABLE="$(printf '%s' "$HEALTH_JSON" | sed -n 's/.*"platform":{"reachable":\(true\|false\).*/\1/p')"
+PLATFORM_REASON="$(printf '%s' "$HEALTH_JSON" | sed -n 's/.*"reason":"\([^"]*\)".*/\1/p')"
+case "$PLATFORM_REACHABLE" in
+  true) pass "auth platform reachable" ;;
+  false)
+    fail "auth platform unreachable (${PLATFORM_REASON:-unknown}) — sign-up, sign-in and sync will fail"
+    printf '       \033[2mAn unreachable platform is expected in the sandbox and on a paused project;\033[0m\n'
+    printf '       \033[2mcheck the project is not paused and the server can reach SUPABASE_URL.\033[0m\n'
+    ;;
+  *) warn "server did not report platform reachability (older build?)" ;;
+esac
 
 CAPS="$(printf '%s' "$HEALTH_JSON" | sed -n 's/.*"capabilities":{\([^}]*\)}.*/\1/p')"
 info "capabilities: ${CAPS:-not reported}"

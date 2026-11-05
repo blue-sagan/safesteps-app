@@ -22,7 +22,50 @@ class AuthError extends Error {
     this.name = 'AuthError';
     this.status = status;
     this.code = code;
+    // Every message this class is constructed with is written here, in this
+    // file, for a person to read — none of them interpolate upstream text.
+    // Without this flag sendError() replaced all 5xx bodies with "Something
+    // went wrong", so a Supabase outage (or a paused free-plan project) showed
+    // users a dead end instead of the actionable message authored below.
+    this.expose = true;
   }
+}
+
+/**
+ * Turn an upstream failure into something a user can act on.
+ *
+ * These are the failures that actually interrupt this app on a free plan:
+ * a paused project, an exhausted quota, and a plain outage. They are worth
+ * distinguishing because the remedy differs — wait, upgrade, or nothing at all.
+ */
+function classifyUpstream(status, upstream) {
+  const text = String(upstream || '').toLowerCase();
+
+  // Supabase pauses a project that exceeds free-plan limits; Postgres reports a
+  // full disk as 53100/53400 ("No space left on device").
+  const paused =
+    text.includes('paused') ||
+    text.includes('no space left') ||
+    text.includes('53100') ||
+    text.includes('53400') ||
+    text.includes('disk_full') ||
+    text.includes('exceeded') && (text.includes('quota') || text.includes('limit'));
+
+  if (paused) {
+    return new AuthError(
+      'SafeSteps is temporarily read-only while its storage is being restored. Everything already on this device still works. Please try again later.',
+      { status: 503, code: 'service_paused' }
+    );
+  }
+
+  if (status === 502 || status === 503 || status === 504) {
+    return new AuthError(
+      'The sign-in service is temporarily unavailable. Please try again in a moment.',
+      { status: 503, code: 'auth_unavailable' }
+    );
+  }
+
+  return null;
 }
 
 function baseUrl() {
@@ -65,6 +108,12 @@ async function call(pathname, { method = 'POST', body, accessToken, headers: ext
     // Map GoTrue responses onto a small, uniform vocabulary. Raw upstream
     // messages are logged, never returned.
     const upstream = String((parsed && (parsed.msg || parsed.message || parsed.error_description)) || '');
+    // Classification looks at EVERY field, not just the one that gets logged:
+    // Postgres reports a full disk in error_description while `message` says
+    // only "lack of resources", and matching on the first field alone missed it.
+    const upstreamAll = String(
+      parsed ? [parsed.msg, parsed.message, parsed.error_description, parsed.error, parsed.code, parsed.detail].filter(Boolean).join(' ') : ''
+    );
     console.warn('[auth]', response.status, pathname, upstream.slice(0, 200));
 
     if (response.status === 429) {
@@ -73,6 +122,11 @@ async function call(pathname, { method = 'POST', body, accessToken, headers: ext
         code: 'rate_limited',
       });
     }
+
+    // Paused project / full disk / gateway error. Checked before the generic
+    // cases below so the user gets a diagnosis instead of "try again".
+    const classified = classifyUpstream(response.status, upstreamAll);
+    if (classified) throw classified;
     if (upstream.toLowerCase().includes('already registered')) {
       throw new AuthError('If that address can be used, we have sent you an email with next steps.', {
         status: 200,

@@ -73,6 +73,61 @@ function hostAllowed(req) {
   return host === allowed;
 }
 
+/* ------------------------------------------------------------------ */
+/* Platform health probe                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Is the database reachable right now?
+ *
+ * A Supabase project on a free plan pauses when it exceeds its limits, and the
+ * symptom is that every auth and data call fails at once. Without this probe the
+ * first person to find out is a user, and the /healthz endpoint cheerfully
+ * reports "ok" while nothing works.
+ *
+ * Deliberately cached: a health check may be polled every few seconds and this
+ * must not become a way to hammer the platform or burn the request quota it is
+ * meant to be watching. It also never throws — an unreachable platform is an
+ * answer, not an error.
+ */
+const PLATFORM_PROBE_TTL_MS = 60_000;
+let platformProbe = { at: 0, result: null };
+
+async function probePlatform({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && platformProbe.result && now - platformProbe.at < PLATFORM_PROBE_TTL_MS) {
+    return platformProbe.result;
+  }
+  if (!config.supabase.url) {
+    platformProbe = { at: now, result: { reachable: false, reason: 'not_configured' } };
+    return platformProbe.result;
+  }
+
+  let result;
+  try {
+    const key = config.supabase.publishableKey || config.supabase.serviceRoleKey;
+    const response = await fetch(`${config.supabase.url}/auth/v1/health`, {
+      headers: key ? { apikey: key, Authorization: `Bearer ${key}` } : {},
+      signal: AbortSignal.timeout(4000),
+    });
+    if (response.ok) {
+      result = { reachable: true, reason: 'ok' };
+    } else {
+      const text = await response.text().catch(() => '');
+      const paused = /paused|no space left|53100|53400|quota|exceeded/i.test(text);
+      result = {
+        reachable: false,
+        reason: paused ? 'paused_or_over_quota' : `http_${response.status}`,
+      };
+    }
+  } catch (error) {
+    result = { reachable: false, reason: 'unreachable' };
+  }
+
+  platformProbe = { at: now, result };
+  return result;
+}
+
 async function requestListener(req, res) {
   res.setHeader('X-Request-Id', require('node:crypto').randomUUID());
 
@@ -106,11 +161,29 @@ async function requestListener(req, res) {
     // booleans and a warning count, so this is safe on a public probe.
     const capabilities = config.capabilities();
     const degraded = Object.values(capabilities).some((value) => !value);
+    // Ask the platform how it is doing. Cached for a minute, so this is cheap
+    // even when a monitor polls every few seconds.
+    const platform = await probePlatform();
+
+    // Always 200 while the process is serving. That is deliberate and it is the
+    // opposite of the usual advice, so the reasoning matters:
+    //
+    // SafeSteps is offline-first. The lesson library, quizzes, route planner,
+    // hazard map and local saving all run from the cached shell with no
+    // database at all. Returning 503 when Supabase is unreachable would make
+    // Render treat this instance as unhealthy and restart or withdraw it —
+    // taking down the parts that were working perfectly. A paused project
+    // should degrade the app, not kill it.
+    //
+    // So the signal for monitoring is the body, not the status code:
+    //   status: "ok" | "degraded"   platform.reachable: true | false
+    // Alert on `platform.reachable === false` for more than a few minutes.
     res.writeHead(200, { 'Content-Type': 'application/json', ...securityHeaders('', { isApi: true }) });
     res.end(
       JSON.stringify({
-        status: 'ok', // the process is serving; `degraded` flags missing config
-        degraded,
+        status: platform.reachable ? (degraded ? 'degraded' : 'ok') : 'degraded',
+        degraded: degraded || !platform.reachable,
+        platform,
         uptime: Math.round(process.uptime()),
         capabilities,
         // Which transports exist — booleans only, never a credential. Lets an

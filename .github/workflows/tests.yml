@@ -1,0 +1,87 @@
+name: Tests and layout
+
+# Section C: "test updates before deployment" and "test mobile compatibility".
+# Every push runs the server test suite and the layout audit on eight phone
+# sizes. A red run blocks the deploy; that is the whole point of the gate.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server tests (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the declared engine floor in safesteps/server/package.json.
+        # Testing only the newest runtime would let a floor-breaking change ship.
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run the test suite
+        working-directory: safesteps/server
+        run: node --test test/*.test.js
+      - name: Every module parses
+        working-directory: safesteps/server
+        run: |
+          for f in server.js lib/*.js; do node --check "$f"; done
+          echo "all modules parse"
+
+  client:
+    name: Client syntax and mobile layout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Inline scripts parse
+        run: |
+          node -e '
+            const fs = require("fs");
+            const html = fs.readFileSync("safesteps/index.html", "utf8");
+            const blocks = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+            if (!blocks.length) { console.error("no inline scripts found — has the file changed shape?"); process.exit(1); }
+            for (const [i, code] of blocks.entries()) {
+              try { new (require("vm").Script)(code, { filename: `inline-${i}.js` }); }
+              catch (e) { console.error(`inline script ${i} does not parse: ${e.message}`); process.exit(1); }
+            }
+            console.log(`${blocks.length} inline script block(s) parse`);
+          '
+
+      - name: Install the layout engine
+        # happy-dom is a dev-only dependency, never shipped to the browser.
+        run: npm install --no-save happy-dom
+
+      - name: Mobile layout audit (8 phone sizes x every screen)
+        run: node scripts/check-mobile.js
+
+      - name: Release safety (cache busting, pre-cached assets)
+        # An app-shell change without a CACHE_VERSION bump means every existing
+        # user keeps the old shell, and later rollbacks are silently ignored.
+        run: |
+          git fetch --no-tags --depth=50 origin main || true
+          node scripts/check-release.js --since origin/main
+
+  secrets:
+    name: No credentials or unsafe patterns in the client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: ./scripts/security-audit.sh
