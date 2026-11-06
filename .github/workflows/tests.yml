@@ -92,6 +92,12 @@ jobs:
         # optimised" is only true if it is checked on every page.
         run: node scripts/check-mobile.js
 
+      - name: User states (all ten, executed not grepped)
+        # renderNoResults was defined, reviewed and never called. A state that is
+        # defined but unreachable is not implemented, so this runs the page's own
+        # helpers in a DOM and asserts on the rendered markup and ARIA roles.
+        run: node scripts/check-states.js
+
       - name: Performance budget (bytes on the wire, blocking resources)
         # Measures what a phone actually downloads: brotli bytes for the shell,
         # render-blocking stylesheets, CSS @import chains, image weights, and that
