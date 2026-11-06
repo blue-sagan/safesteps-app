@@ -9,8 +9,13 @@
 <meta name="theme-color" content="#0A0F1C" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#F4FBF6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0A0F1C">
+<!-- Favicon: .ico multi-size (16/32/48) for tabs and bookmarks, plus the PNG
+     sizes browsers actually request. Without the .ico, some browsers showed a
+     blank tab and others upscaled the 192px app icon into a blurry square. -->
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-512.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SafeSteps">
@@ -129,6 +134,22 @@
   :focus-visible{ outline:2.5px solid var(--teal); outline-offset:2px; border-radius:4px; }
   .ai-chat-bar input:focus-visible{ outline:2px solid var(--teal); outline-offset:0; border-radius:8px; }
   html,body{margin:0;padding:0;}
+  /* A phone app must never scroll sideways. Widths are constrained here, and
+     long unbreakable strings wrap instead of widening the page.
+     `clip`, not `hidden`: overflow:hidden on html/body makes the body its own
+     scroll container, which stops the sticky header from sticking. `clip` trims
+     the same overflow without that side effect, and where a browser does not
+     understand `clip` the declaration is simply dropped (no worse than before). */
+  html{ overflow-x:clip; max-width:100%; }
+  body{ overflow-x:clip; width:100%; max-width:100%; }
+  img,svg,video,canvas,iframe{ max-width:100%; }
+  p,li,span,b,strong,em,small,label,td,th,h1,h2,h3,h4,h5,h6{
+    overflow-wrap:break-word; word-wrap:break-word;
+  }
+  /* Long identifiers and e-mail addresses break rather than overflow. */
+  a[href^="mailto:"], .contact-nums a, code, pre, input, textarea, select{
+    overflow-wrap:break-word; word-break:break-word;
+  }
   body{
     font-family:'Inter',sans-serif;
     background:var(--bg);
@@ -177,10 +198,21 @@
   }
   .brand{display:flex; align-items:center; gap:11px;}
   .brand-icon{
-    width:40px; height:40px; border-radius:13px; background:linear-gradient(135deg, var(--teal), var(--teal-dark));
+    width:44px; height:44px; border-radius:13px; background:linear-gradient(135deg, var(--teal), var(--teal-dark));
     display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
     box-shadow:0 4px 12px rgba(var(--teal-rgb),0.35);
   }
+  .brand-home{
+    display:flex; align-items:center; gap:10px; padding:4px 6px 4px 2px;
+    margin:-4px 0 -4px -2px; background:none; border:none; cursor:pointer;
+    font-family:inherit; text-align:left; border-radius:12px; color:inherit;
+    min-height:48px; -webkit-tap-highlight-color:transparent;
+  }
+  .brand-home:active{ transform:scale(0.98); }
+  .brand-home:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+  .brand-text{ display:flex; flex-direction:column; }
+  .brand-home .brand-name{ display:block; }
+  .brand-home .brand-sub{ display:block; }
   .brand-name{font-size:19px; font-weight:700; margin:0; letter-spacing:-0.01em;}
   .brand-sub{font-size:12px; color:var(--text-dim); margin:0;}
   .gear-btn{
@@ -395,6 +427,7 @@
   .pin-dots{display:flex; gap:10px; justify-content:center; margin-bottom:16px;}
   .pin-dot{width:14px; height:14px; border-radius:50%; border:2px solid var(--border); background:transparent;}
   .pin-dot.filled{background:var(--teal); border-color:var(--teal);}
+  .pin-dot.pin-error, .pin-error .pin-dot{ background:var(--red) !important; border-color:var(--red) !important; }
   .pin-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
   .pin-key{background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:14px 0; text-align:center; font-size:17px; font-weight:700; cursor:pointer; color:var(--text);}
   .pin-key:active{transform:scale(.95);}
@@ -557,6 +590,13 @@
   .contact-ic{width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#fff; flex-shrink:0;}
   .contact-left b{display:block; font-size:13.5px;}
   .contact-left span{font-size:11.5px; color:var(--text-dim);}
+  /* Numbers inside the SOS list are individually dialable, with a tap target
+     large enough to hit on a phone. */
+  .contact-nums a{
+    color:var(--teal); font-weight:700; text-decoration:none;
+    display:inline-block; padding:6px 2px; margin:-6px 0;
+  }
+  .contact-nums a:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; border-radius:4px; }
   .contact-call{
     /* 44px minimum tap target; was 36px. This one dials an emergency contact,
        so a mis-tap is the worst possible place to save 8 pixels. */
@@ -589,6 +629,13 @@
     width:100%; padding:12px; border:1px solid var(--border); border-radius:13px; background:var(--card); color:var(--teal);
     font-family:'Poppins',sans-serif; font-weight:700; font-size:12.5px; cursor:pointer; margin-bottom:16px;
   }
+  /* In-page error state (used when a data file cannot be loaded). */
+  .load-error{
+    border:1px solid var(--red); border-left:4px solid var(--red);
+    background:rgba(244,67,54,0.08); border-radius:12px;
+    padding:14px 16px; margin-bottom:12px;
+  }
+  .load-error .fa-more-btn{ margin-bottom:0; width:auto; padding:10px 18px; }
   .fa-detail{display:none;}
   .fa-detail.open{display:block;}
 
@@ -616,6 +663,32 @@
   .about-link{display:flex; align-items:center; gap:8px; color:var(--teal); font-weight:700; font-size:13px; cursor:pointer;}
 
   /* ---------- BOTTOM BAR (FLOATING SOS BUBBLE ONLY) ---------- */
+  /* ---------- FOOTER ---------- */
+  .app-footer{
+    margin:26px 18px 0; padding:18px 0 6px; border-top:1px solid var(--border);
+    text-align:center;
+  }
+  .app-footer-links{
+    display:flex; flex-wrap:wrap; justify-content:center; align-items:center;
+    gap:4px 6px; margin-bottom:10px;
+  }
+  /* 44px minimum touch target, with the visual text still small. */
+  .app-footer-links a, .app-footer-links button{
+    min-height:44px; display:inline-flex; align-items:center; padding:0 10px;
+    font-size:12.5px; font-weight:700; color:var(--teal); text-decoration:none;
+    background:none; border:none; cursor:pointer; border-radius:8px;
+    font-family:inherit; line-height:1.2;
+  }
+  .app-footer-links a:hover, .app-footer-links button:hover{ text-decoration:underline; }
+  .app-footer-links a:focus-visible, .app-footer-links button:focus-visible{
+    outline:2px solid var(--teal); outline-offset:2px;
+  }
+  .app-footer-sep{ color:var(--border); font-size:11px; }
+  .app-footer-copy{ font-size:12.5px; color:var(--text-dim); margin:0 0 4px; line-height:1.5; }
+  .app-footer-note{ font-size:12px; color:var(--text-dim); opacity:0.8; margin:0; line-height:1.5; }
+  .app-footer-emerg{ font-size:12px; color:var(--text-dim); margin:6px 0 0; }
+  .app-footer-emerg a{ color:var(--red); font-weight:800; text-decoration:none; }
+
   .bottom-bar{
     position:fixed; bottom:0; left:50%; transform:translateX(-50%); max-width:480px; width:100%;
     z-index:900; display:flex; justify-content:center;
@@ -632,7 +705,6 @@
   }
   .floating-sos-center:active{ transform:scale(0.93); }
   .fsc-ic{ font-size:24px; position:relative; z-index:2; }
-  .bnav-btn{ display:none; }
   .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
   @keyframes slideUpSheet{ from{ transform:translateY(100%); } to{ transform:translateY(0); } }
   .fsc-ring{
@@ -650,6 +722,18 @@
     position:fixed; bottom:170px; left:50%; transform:translateX(-50%); background:var(--card2); color:var(--text);
     border:1px solid var(--border); padding:10px 18px; border-radius:20px; font-size:12px; font-weight:700;
     opacity:0; pointer-events:none; transition:.25s; z-index:1300;
+    /* A long message must wrap inside the phone, not run off both edges. */
+    max-width:calc(100% - 32px); width:max-content; box-sizing:border-box;
+    text-align:center; line-height:1.4;
+    display:block; visibility:hidden;
+  }
+  .toast.toast-error{
+    background:var(--red); color:#fff; border-color:var(--red);
+    box-shadow:0 10px 26px rgba(211,47,47,0.45);
+  }
+  .toast.toast-success{
+    background:var(--teal); color:#04220f; border-color:var(--teal);
+    box-shadow:0 10px 26px rgba(0,163,68,0.4);
   }
 
   .update-toast{
@@ -662,7 +746,7 @@
     background:var(--teal); color:#062f24; border:none; border-radius:10px; padding:6px 12px;
     font-size:12px; font-weight:800; cursor:pointer; flex-shrink:0;
   }
-  .toast.show{opacity:1; bottom:180px;}
+  .toast.show{opacity:1; bottom:180px; visibility:visible;}
 
   /* ---------- SPLASH (REFINED PROJECT 360° SHIELD) ---------- */
   #splashScreen{
@@ -875,13 +959,16 @@
   <header id="mainHeader">
     <div class="brand">
       <button class="back-btn" id="mainBackBtn" onclick="goBack()" aria-label="Go back" style="display:none; margin-right:2px;">←</button>
-      <div class="brand-icon"><img src="assets/brand-logo.png" alt="Project 360° Shield emblem" width="38" height="38" style="width:100%; height:100%; object-fit:cover; border-radius:12px;"></div>
-      <div>
-        <p class="brand-name" id="brandTitle" style="font-size:19px; margin:0;">SafeSteps</p>
-        <p class="brand-sub" id="pageTagline">Project 360° Shield · Kenya Scouts</p>
-      </div>
+      <button class="brand-home" type="button" onclick="showPage('home')" aria-label="SafeSteps home" title="Go to home">
+        <span class="brand-icon"><img src="assets/brand-logo.png" alt="" width="38" height="38" style="width:100%; height:100%; object-fit:cover; border-radius:12px;"></span>
+        <span class="brand-text">
+          <span class="brand-name" id="brandTitle">SafeSteps</span>
+          <span class="brand-sub" id="pageTagline">Project 360° Shield · Kenya Scouts</span>
+        </span>
+      </button>
     </div>
     <div style="display:flex; align-items:center; gap:6px;">
+      <button class="gear-btn" id="headerMenuBtn" onclick="openMoreActionSheet()" aria-label="Open menu — all tools" aria-haspopup="dialog" aria-controls="moreActionSheet" title="Menu" style="font-size:15px;">☰</button>
       <button class="gear-btn" id="headerAccountBtn" onclick="showPage('account')" aria-label="SafeSteps account and verification" title="SafeSteps account and verification" style="font-size:13px; width:auto; padding:0 10px; white-space:nowrap;">🔐 Account</button>
       <button class="gear-btn" onclick="showPage('settings')" aria-label="Open settings">⚙️</button>
     </div>
@@ -1603,20 +1690,20 @@
       <div class="section-label">Emergency Contacts</div>
       <div class="contacts-card">
         <div class="contact-item">
-          <div class="contact-left"><div class="contact-ic" style="background:#3B82F6;">🛡️</div><div><b>Police</b><span>999 · 112</span></div></div>
-          <a class="contact-call" href="tel:999">📞</a>
+          <div class="contact-left"><div class="contact-ic" style="background:#3B82F6;">🛡️</div><div><b>Police</b><span class="contact-nums"><a href="tel:999">999</a> · <a href="tel:112">112</a></span></div></div>
+          <a class="contact-call" href="tel:999" aria-label="Call the police on 999">📞</a>
         </div>
         <div class="contact-item">
-          <div class="contact-left"><div class="contact-ic" style="background:#EF4444;">🩹</div><div><b>Ambulance — Red Cross</b><span>1199 · 0700 395 395</span></div></div>
-          <a class="contact-call" href="tel:1199">📞</a>
+          <div class="contact-left"><div class="contact-ic" style="background:#EF4444;">🩹</div><div><b>Ambulance — Red Cross</b><span class="contact-nums"><a href="tel:1199">1199</a> · <a href="tel:0700395395">0700 395 395</a></span></div></div>
+          <a class="contact-call" href="tel:1199" aria-label="Call an ambulance on 1199">📞</a>
         </div>
         <div class="contact-item">
-          <div class="contact-left"><div class="contact-ic" style="background:#F2913B;">🔥</div><div><b>Fire Brigade (Nairobi)</b><span>020 2222181</span></div></div>
-          <a class="contact-call" href="tel:0202222181">📞</a>
+          <div class="contact-left"><div class="contact-ic" style="background:#F2913B;">🔥</div><div><b>Fire Brigade (Nairobi)</b><span class="contact-nums"><a href="tel:0202222181">020 2222181</a></span></div></div>
+          <a class="contact-call" href="tel:0202222181" aria-label="Call the Nairobi fire brigade">📞</a>
         </div>
         <div class="contact-item">
-          <div class="contact-left"><div class="contact-ic" style="background:#8B5CF6;">🚓</div><div><b>NTSA / Traffic Reporting</b><span>911 · 0709 932 000</span></div></div>
-          <a class="contact-call" href="tel:911">📞</a>
+          <div class="contact-left"><div class="contact-ic" style="background:#8B5CF6;">🚓</div><div><b>NTSA / Traffic Reporting</b><span class="contact-nums"><a href="tel:911">911</a> · <a href="tel:0709932000">0709 932 000</a></span></div></div>
+          <a class="contact-call" href="tel:911" aria-label="Report to NTSA on 911">📞</a>
         </div>
       </div>
       <select class="county-inline" id="countySelect" onchange="renderCountyContact()" style="width:100%; margin-bottom:10px;"></select>
@@ -1648,7 +1735,7 @@
 
     <!-- MORE HUB -->
     <section class="page" id="page-more">
-      <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px;">More tools to help you and your community stay safe.</p>
+      <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px;">Your streak, level, badges and daily challenges — plus notification and voice settings.</p>
 
       <div class="profile-card">
         <div class="profile-top">
@@ -2564,6 +2651,25 @@
     </section>
   </main>
 
+  <footer class="app-footer">
+    <nav class="app-footer-links" aria-label="Footer">
+      <a href="./legal.html">Privacy Policy</a>
+      <span class="app-footer-sep" aria-hidden="true">·</span>
+      <a href="./legal.html#terms">Terms of Use</a>
+      <span class="app-footer-sep" aria-hidden="true">·</span>
+      <a href="mailto:safestepske@gmail.com">Contact</a>
+      <span class="app-footer-sep" aria-hidden="true">·</span>
+      <button type="button" onclick="closeMoreAndShowPage('changelog')">What's New</button>
+      <span class="app-footer-sep" aria-hidden="true">·</span>
+      <button type="button" onclick="closeMoreAndShowPage('settings')">Settings</button>
+    </nav>
+    <p class="app-footer-copy">
+      &copy; <span id="footerYear">2026</span> SafeSteps · Project 360&deg; Shield, Kenya
+    </p>
+    <p class="app-footer-note">Road safety guidance only — not a substitute for medical or legal advice.</p>
+    <p class="app-footer-emerg">Emergency: <a href="tel:112">112</a> · <a href="tel:999">999</a></p>
+  </footer>
+
   <!-- BOTTOM SOS BUBBLE ONLY (PER USER INSTRUCTION FROM SCREENSHOT) -->
   <div class="bottom-bar" id="bottomNav">
     <button class="floating-sos-center" onclick="showPage('sos')" aria-label="Emergency SOS">
@@ -2658,6 +2764,9 @@
         <div class="cat-card" onclick="closeMoreAndShowPage('firstaid')" style="padding:12px 8px;"><span style="font-size:20px;">🩹</span><b style="font-size:12px; display:block;">First Aid</b></div>
         <div class="cat-card" onclick="closeMoreAndShowPage('scout')" style="padding:12px 8px;"><span style="font-size:20px;">🎖️</span><b style="font-size:12px; display:block;">Scout Corner</b></div>
         <div class="cat-card" onclick="closeMoreAndShowPage('portal')" style="padding:12px 8px;"><span style="font-size:20px;">🔒</span><b style="font-size:12px; display:block;">Parent Portal</b></div>
+        <div class="cat-card" onclick="closeMoreAndShowPage('more')" style="padding:12px 8px;"><span style="font-size:20px;">🏅</span><b style="font-size:12px; display:block;">My Progress</b></div>
+        <div class="cat-card" onclick="closeMoreAndShowPage('curriculum')" style="padding:12px 8px;"><span style="font-size:20px;">🎒</span><b style="font-size:12px; display:block;">Teacher Guides</b></div>
+        <div class="cat-card" onclick="closeMoreAndShowPage('matatusacco')" style="padding:12px 8px;"><span style="font-size:20px;">🚐</span><b style="font-size:12px; display:block;">SACCO Ratings</b></div>
         <div class="cat-card" onclick="closeMoreAndShowPage('changelog')" style="padding:12px 8px;"><span style="font-size:20px;">🆕</span><b style="font-size:12px; display:block;">What's New</b></div>
         <div class="cat-card" onclick="closeMoreAndShowPage('chatbot')" style="padding:12px 8px;"><span style="font-size:20px;">🤖</span><b style="font-size:12px; display:block;">Ask SafeSteps</b></div>
         <div class="cat-card" onclick="closeMoreAndShowPage('settings')" style="padding:12px 8px;"><span style="font-size:20px;">⚙️</span><b style="font-size:12px; display:block;">Settings</b></div>
@@ -3131,9 +3240,23 @@ function generateSyncCode(){
   const copyBtn = document.getElementById("syncCopyCodeBtn");
   if(copyBtn){
     copyBtn.onclick = function(){
-      navigator.clipboard.writeText(code)
-        .then(()=>showToast("Share code copied"))
-        .catch(()=>showToast("Could not copy — select the text manually"));
+      // The Clipboard API only exists in a secure context, so it is absent on
+      // plain http. Guard for it, and select the text as a fallback so the user
+      // can still copy by hand.
+      const selectText = () => {
+        try{ if(codeArea){ codeArea.focus(); codeArea.select(); } }catch(e){}
+      };
+      if(!navigator.clipboard || typeof navigator.clipboard.writeText !== "function"){
+        selectText();
+        showErrorToast("Copy isn't available here — the code is selected, press and hold to copy.");
+        return;
+      }
+      navigator.clipboard.writeText(code).then(()=>{
+        showSuccessToast("Share code copied ✓");
+      }).catch(()=>{
+        selectText();
+        showErrorToast("Could not copy — the code is selected, press and hold to copy.");
+      });
     };
   }
   const qrHolder = document.getElementById("syncQrHolder");
@@ -3369,9 +3492,20 @@ function openPortalGate(){
   grid.innerHTML = ["1","2","3","4","5","6","7","8","9","⌫","0","OK"]
     .map(k=>`<div class="pin-key" onclick="pressPinKey('${k}')">${k}</div>`).join("");
 }
+let pinAttempts = 0;
 function renderPinDots(){
-  document.getElementById("pinDots").innerHTML = [0,1,2,3].map(i=>
+  const el = document.getElementById("pinDots");
+  if(!el) return;
+  el.innerHTML = [0,1,2,3].map(i=>
     `<div class="pin-dot ${i<pinBuffer.length?'filled':''}"></div>`).join("");
+}
+// Mark the PIN dots red for a moment after a wrong PIN, so the failure is visible
+// on the keypad itself and not only in a toast that may have already faded.
+function flashPinError(){
+  const el = document.getElementById("pinDots");
+  if(!el) return;
+  el.classList.add("pin-error");
+  setTimeout(()=> el.classList.remove("pin-error"), 900);
 }
 function pressPinKey(k){
   if(k==="⌫"){ pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); return; }
@@ -3386,20 +3520,26 @@ function submitPin(){
   if(!state.portalPin){
     state.portalPin = pinBuffer;
     persist();
-    showToast("PIN set — remember it for next time");
+    showSuccessToast("PIN set ✓ — remember it for next time");
     showPortalContent();
   } else if(pinBuffer === state.portalPin){
+    pinAttempts = 0;
     showPortalContent();
+    showToast("Welcome back");
   } else {
-    showToast("Incorrect PIN");
+    pinAttempts++;
     pinBuffer = "";
     renderPinDots();
+    flashPinError();
+    showErrorToast(pinAttempts >= 3
+      ? "Incorrect PIN. Still not working? Use “Reset PIN” below."
+      : "Incorrect PIN — try again.");
   }
 }
 function resetPortalPin(){
   state.portalPin = null;
   persist();
-  showToast("PIN cleared — set a new one next time you open the portal");
+  showSuccessToast("PIN cleared — set a new one next time you open the portal");
   openPortalGate();
 }
 let portalViewingProfileId = null;
@@ -4335,6 +4475,66 @@ function setLanguage(lang){ state.lang = lang; persist(); applyLanguage(); }
 /* ---------------- NAV ---------------- */
 let navHistory = ["home"];
 let navigatingViaHistory = false;
+
+// Per-screen document titles and meta descriptions.
+//
+// Before this, the tab always read "SafeSteps - Road Safety Companion" and every
+// screen shared the app-level description, so a user with SafeSteps open could
+// not tell from the tab (or from a home-screen shortcut) which screen they were
+// on. Keys match the ids passed to showPage(); anything absent falls back to the
+// app defaults below.
+const APP_TITLE = "SafeSteps - Road Safety Companion";
+const APP_DESC = document.querySelector('meta[name="description"]').content;
+const SCREEN_META = {
+  home:        ["Home", "Your offline road safety dashboard for Kenya — daily safety tip, quick actions and emergency numbers."],
+  learn:       ["Learn", "Road safety lessons for Kenyan pedestrians, passengers and riders — matatu, boda boda, night travel and school crossings."],
+  map:         ["Hazard Map", "Report and view road hazards near you — potholes, black spots, flooding and missing crossings."],
+  sos:         ["Emergency SOS", "One-tap emergency numbers in Kenya — police 999 or 112, ambulance 1199, and your trusted contact."],
+  quiz:        ["Quiz Challenge", "Test your road safety knowledge with the SafeSteps quiz. Earn badges and keep your streak going."],
+  signs:       ["Road Signs", "Learn Kenyan road signs and markings — warning, regulatory, priority and information signs."],
+  signscan:    ["Sign Scanner", "Point your camera at a road sign and SafeSteps identifies it and explains what to do."],
+  videos:      ["Safety Videos", "Short road safety videos for Kenyan roads, saved for offline viewing."],
+  report:      ["Report a Hazard", "Report a road hazard anonymously with a location and photo, so other road users can be warned."],
+  posts:       ["Community", "What other road users are reporting near you. Read and react to community hazard reports."],
+  route:       ["Route Planner", "Plan a safer route and check the risk level of roads and stages along the way."],
+  bus:         ["Bus & Coach Guide", "Long-distance bus and coach safety in Kenya — booking, boarding, night travel and your rights as a passenger."],
+  boda:        ["Boda Boda Guide", "Motorcycle taxi safety — helmets, reflective jackets, safe riding and what to check before you board."],
+  matatu:      ["Matatu Guide", "Matatu safety — checking the PSV licence, speed governor, seat belts and your rights on board."],
+  night:       ["Night Travel", "Staying safe travelling at night — visibility, stages, sharing your trip and knowing what to avoid."],
+  school:      ["School Run", "Getting children to and from school safely — crossings, school buses and walking groups."],
+  weather:     ["Weather Tips", "Driving and walking safely in rain, fog and flooding on Kenyan roads."],
+  audio:       ["Audio Stories", "Road safety stories you can listen to offline, in the languages you speak."],
+  phrasebook:  ["Phrasebook", "Useful Swahili and English phrases for reporting a hazard or asking for help."],
+  buddy:       ["Buddy Mode", "Travel with a buddy — share your trip and let someone follow that you arrive safely."],
+  firstaid:    ["First Aid", "What to do in the first minutes after a road crash, before help arrives."],
+  scout:       ["Scout Corner", "Road safety activities and badges for Kenya Scouts Association members."],
+  curriculum:  ["Teacher Guides", "Printable 8-week road safety curriculum for schools, with discussion points, crossing activities and assessment rubrics."],
+  matatusacco: ["SACCO Ratings", "Look up a matatu SACCO or fleet to check safety ratings, governor compliance and complaint hotlines."],
+  portal:      ["Parent Portal", "PIN-protected portal for parents and guardians to review their child's road safety progress."],
+  changelog:   ["What's New", "Recent SafeSteps updates, new features and fixes."],
+  chatbot:     ["Ask SafeSteps", "Ask a road safety question and get an answer, even without a connection."],
+  settings:    ["Settings", "Language, accessibility, simplified mode, notifications, privacy and data controls."],
+  account:     ["Account Hub", "Sign in, manage your profile, and control what SafeSteps stores on your device."],
+  integrity:   ["Whistleblower", "Report unsafe PSV conduct or bribery confidentially, without giving your name."],
+  rights:      ["Road Rights", "Your rights as a road user in Kenya — what police and PSV operators may and may not do."],
+  more:        ["My Progress", "Your SafeSteps streak, level, badges, daily challenges and check-ins."],
+  srs:         ["Program & SRS Tracking", "SafeSteps safety programme reference and SRS requirement tracking for FM, TD, IT and RC tiers."]
+};
+
+// setScreenMeta() is called from showPage() so the browser tab, the history
+// entry, a bookmark and a home-screen shortcut all describe the screen actually
+// on show.
+function setScreenMeta(id, screenLabel){
+  try{
+    const m = SCREEN_META[id];
+    document.title = m ? m[0] + " · SafeSteps" : APP_TITLE;
+    const meta = document.querySelector('meta[name="description"]');
+    if(meta) meta.setAttribute("content", m ? m[1] : APP_DESC);
+    const og = document.querySelector('meta[property="og:title"]');
+    if(og) og.setAttribute("content", m ? m[0] + " · SafeSteps" : APP_TITLE);
+  }catch(e){ /* a missing title must never break navigation */ }
+}
+
 function showPage(id, opts){
   if(id === 'srs'){ try{ loadSrsFeaturesData(); }catch(e){} }
 
@@ -4351,18 +4551,13 @@ function showPage(id, opts){
   document.querySelectorAll(".page").forEach(s=>s.classList.remove("active"));
   const targetPage = document.getElementById("page-"+id);
   if(targetPage) targetPage.classList.add("active");
-  document.querySelectorAll(".nav-btn, .bnav-btn").forEach(b=>{
+  document.querySelectorAll(".nav-btn").forEach(b=>{
     const isActive = b.dataset.nav === id;
     b.classList.toggle("active", isActive);
     if(isActive) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   });
-  const moreBtn = document.getElementById("bnavMoreBtn");
-  if(moreBtn && !["home","learn","map","sos"].includes(id)){
-    moreBtn.classList.add("active");
-  } else if(moreBtn){
-    moreBtn.classList.remove("active");
-  }
   closeMoreActionSheet();
+  setScreenMeta(id);
   announceToScreenReader("Navigated to " + (id === "home" ? "Home" : id) + " page");
   document.getElementById("mainHeader").style.display = (id === "settings" || id === "portal" || id === "account") ? "none" : "flex";
   document.getElementById("settingsHeader").style.display = id === "settings" ? "flex" : "none";
@@ -4429,16 +4624,48 @@ window.addEventListener("popstate", (e)=>{
   }
 });
 
+let _menuReturnFocus = null;
+
 function openMoreActionSheet(){
   const sheet = document.getElementById("moreActionSheet");
-  if(sheet) sheet.style.display = "flex";
-  announceToScreenReader("More tools menu opened. Select a tool or close.");
+  if(!sheet) return;
+  // Remember where focus was so closing the menu returns it there. Without this,
+  // keyboard and screen-reader users were dropped at the top of the document.
+  _menuReturnFocus = document.activeElement;
+  sheet.style.display = "flex";
+  document.body.style.overflow = "hidden";   // stop the page scrolling behind the sheet
+  const first = sheet.querySelector("button, [onclick]");
+  if(first && first.focus) try{ first.focus(); }catch(e){}
+  announceToScreenReader("More tools menu opened. Select a tool or press Escape to close.");
 }
 
 function closeMoreActionSheet(){
   const sheet = document.getElementById("moreActionSheet");
-  if(sheet) sheet.style.display = "none";
+  if(!sheet) return;
+  const wasOpen = sheet.style.display !== "none" && sheet.style.display !== "";
+  sheet.style.display = "none";
+  document.body.style.overflow = "";
+  if(wasOpen && _menuReturnFocus && _menuReturnFocus.focus){
+    try{ _menuReturnFocus.focus(); }catch(e){}
+  }
+  _menuReturnFocus = null;
 }
+
+// Escape closes the menu. Bound once, and only acts when the sheet is open.
+document.addEventListener("keydown", function(e){
+  if(e.key !== "Escape") return;
+  const sheet = document.getElementById("moreActionSheet");
+  if(sheet && sheet.style.display !== "none" && sheet.style.display !== "") closeMoreActionSheet();
+});
+
+// Keep the footer copyright year correct. The markup ships "2026" so the year is
+// right with JavaScript disabled; this corrects it from Jan 1 of any later year
+// instead of leaving a stale year on the page forever.
+function updateFooterYear(){
+  const el = document.getElementById("footerYear");
+  if(el) el.textContent = String(new Date().getFullYear());
+}
+try{ updateFooterYear(); }catch(e){}
 
 function closeMoreAndShowPage(id){
   closeMoreActionSheet();
@@ -4529,7 +4756,38 @@ async function loadLessonsData(){
     }
   }catch(err){
     lessonsDataMeta.failed = true;
+    renderLessonsLoadError();
   }
+}
+
+// Shown in place of the lesson list when lessons.json could not be fetched (first
+// run, offline, and the file was never cached). Without this the screen was just
+// blank. The in-app built-in lesson list above is still available offline, so the
+// message says what to do rather than only that something failed.
+function renderLessonsLoadError(){
+  const list = document.getElementById("lessonList");
+  if(!list) return;
+  if(list.querySelector(".load-error")) return;   // already showing
+  const box = document.createElement("div");
+  box.className = "load-error";
+  box.setAttribute("role", "alert");
+  box.innerHTML = `
+    <b style="display:block; font-size:13.5px; margin-bottom:6px;">⚠️ Couldn't load the lesson library</b>
+    <span style="display:block; font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-bottom:12px;">
+      You're probably offline and these lessons haven't been saved on this device yet.
+      Connect once and they'll be available offline from then on.
+    </span>
+    <button class="fa-more-btn" type="button" onclick="retryLessons()">↻ Try again</button>`;
+  list.prepend(box);
+}
+
+async function retryLessons(){
+  const list = document.getElementById("lessonList");
+  const box = list && list.querySelector(".load-error");
+  if(box) box.remove();
+  lessonsDataMeta.failed = false;
+  await loadLessonsData();
+  if(!lessonsDataMeta.failed) showSuccessToast("Lessons loaded ✓");
 }
 function renderLessons(){
   const list = document.getElementById("lessonList");
@@ -4562,7 +4820,7 @@ function takePledge(){
   renderBadgeIcons();
   checkQuickStartProgress();
   if(state.hapticSupport) triggerHaptic([50, 40, 80]);
-  showToast("Pledge taken — thank you for being a safety champion! 🎉");
+  showSuccessToast("Pledge taken — thank you for being a safety champion! 🎉");
   const shareBtn = document.getElementById("sharePledgeBtn");
   if(shareBtn) shareBtn.style.display = "flex";
   fireConfetti();
@@ -6161,8 +6419,8 @@ async function reportToNTSA(){
       a.href = capturedPhoto; a.download = "hazard-photo.jpg";
       document.body.appendChild(a); a.click(); a.remove();
     }
-    if(navigator.clipboard){
-      try{ await navigator.clipboard.writeText(summary); }catch(err){ /* clipboard blocked — no-op */ }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      try{ await navigator.clipboard.writeText(summary); }catch(err){ /* clipboard blocked — the summary is on screen */ }
     }
     showToast(capturedPhoto ? "📥 Photo downloaded & details copied — paste them into the NTSA form" : "📋 Details copied — paste them into the NTSA form");
   } else {
@@ -7157,10 +7415,43 @@ function checkForUpdates(){
 let toastTimer;
 function showToast(msg){
   const t = document.getElementById("toast");
+  if(!t) return;
   t.textContent = msg;
+  t.classList.remove("toast-error", "toast-success");
   t.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=> t.classList.remove("show"), 2400);
+}
+
+// Errors stay on screen longer than confirmations: a user who missed a success
+// message can carry on, but a user who misses an error does not know why nothing
+// happened. The live-region role is switched to `alert` so it interrupts too.
+function showErrorToast(msg){
+  const t = document.getElementById("toast");
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.remove("toast-success");
+  t.classList.add("show", "toast-error");
+  t.setAttribute("role", "alert");
+  t.setAttribute("aria-live", "assertive");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{
+    t.classList.remove("show");
+    t.setAttribute("role", "status");
+    t.setAttribute("aria-live", "polite");
+  }, 4500);
+}
+
+// A confirmation that is distinct from an error at a glance (colour + icon), so
+// the two are not confused by someone who cannot rely on the text alone.
+function showSuccessToast(msg){
+  const t = document.getElementById("toast");
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.remove("toast-error");
+  t.classList.add("show", "toast-success");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), 2600);
 }
 
 /* ---------------- CONFETTI (badge / streak / milestone celebrations) ---------------- */
@@ -8844,8 +9135,31 @@ function shareBuddyChecklist(){
   shareText(text);
 }
 function shareText(text){
-  if(navigator.share){ navigator.share({text}).catch(()=>{}); }
-  else { window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank"); }
+  const fallback = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    let w = null;
+    try{ w = window.open(url, "_blank"); }catch(e){ w = null; }
+    if(!w){
+      // Pop-up blocked (common on iOS Safari and in an in-app browser). Tell the
+      // user instead of leaving a tap that appears to do nothing.
+      showErrorToast("Couldn't open WhatsApp — allow pop-ups for SafeSteps, then try again.");
+      return;
+    }
+    showToast("Opening WhatsApp to share…");
+  };
+
+  if(navigator.share){
+    navigator.share({text}).then(() => {
+      showToast("Shared ✓");
+    }).catch((err) => {
+      // AbortError means the user dismissed the share sheet on purpose — that is
+      // not an error and must not be reported as one.
+      if(err && (err.name === "AbortError" || err.name === "NotAllowedError")) return;
+      fallback();
+    });
+  } else {
+    fallback();
+  }
 }
 
 /* ---------------- FIRST AID SCENARIOS ---------------- */

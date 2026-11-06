@@ -82,7 +82,14 @@ jobs:
         # happy-dom is a dev-only dependency, never shipped to the browser.
         run: npm install --no-save happy-dom
 
-      - name: Mobile layout audit (8 phone sizes x every screen)
+      - name: No broken links
+        # Local file refs, in-page anchors, every showPage() target, every screen
+        # reachable, tel:/mailto: well-formed, no placeholder href="#".
+        run: node scripts/check-links.js
+
+      - name: Mobile layout audit (8 phone sizes x every page)
+        # Audits index.html, legal.html and 404.html — "every page is mobile
+        # optimised" is only true if it is checked on every page.
         run: node scripts/check-mobile.js
 
       - name: Release safety (cache busting, pre-cached assets)

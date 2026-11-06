@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="SafeSteps privacy policy and terms of use — what data the app keeps, where it lives, and what it does not do.">
 <title>Privacy Policy &amp; Terms — SafeSteps</title>
-<link rel="icon" href="./assets/brand-logo.png">
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="icons/icon-512.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
 <!--
   A standalone page on purpose. These documents are read once, sometimes by a
   parent, a teacher or a data-protection officer, and they must be linkable and
@@ -22,6 +25,12 @@
            --border:#DDEBE0; --teal:#00A844; --red:#E53935; --gold:#E5A100; }
   }
   *{box-sizing:border-box;}
+  /* A phone page must never scroll sideways. The long-safe defaults: no
+     horizontal overflow at all, images can never exceed the screen, and long
+     unbreakable strings (URLs, e-mail addresses) wrap instead of widening it. */
+  html,body{ overflow-x:clip; max-width:100%; }
+  img,svg,video,canvas,iframe{ max-width:100%; }
+  p,li,span,b,a,strong,em,small,h1,h2,h3,h4,h5,h6{ overflow-wrap:break-word; word-wrap:break-word; }
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Inter',sans-serif;
@@ -64,7 +73,6 @@
     min-height:48px; margin-top:32px; padding:0 22px; border-radius:12px;
     background:var(--teal); color:#04220f; font-weight:800; text-decoration:none;
   }
-  .placeholder{border:1px dashed var(--red); border-radius:10px; padding:2px 8px; color:var(--red); font-weight:700;}
 </style>
 </head>
 <body>
@@ -87,18 +95,19 @@
 </header>
 
 <div class="card note">
-  <p style="margin:0;"><strong>Before you publish this page</strong>, replace the three
-  <span class="placeholder">[bracketed]</span> items: the operator's legal name, a contact
-  address, and the governing jurisdiction. Everything else here was written against what the
-  app in this repository actually does — it is not a template.</p>
+  <p style="margin:0;"><strong>One item is still outstanding:</strong> the registered legal name
+  and postal address of the publishing entity. It is stated plainly under <a href="#terms">Contact</a>
+  rather than guessed at — a data-protection officer or a parent reading this needs the real
+  registered entity, and inventing one would be worse than admitting the gap. Everything else
+  here was written against what the app in this repository actually does — it is not a
+  template.</p>
 </div>
 
 <!-- ==================================================================== -->
 <h2 id="privacy">Privacy Policy</h2>
 
 <p>SafeSteps is a road-safety app for Kenya, built with the Kenya Scouts Association as
-<strong>Project 360° Shield</strong>. It is operated by
-<span class="placeholder">[operator legal name]</span> ("we", "us").
+<strong>Project 360° Shield</strong>. It is operated by the SafeSteps team ("we", "us").
 This page explains what the app stores, where it is stored, and what you can do about it.</p>
 
 <p>The short version: <strong>most of what you enter never leaves your phone.</strong>
@@ -236,7 +245,7 @@ settings (or uninstall the app). That removes your saved progress, medical note 
 contact from the phone.</p>
 
 <p><strong>Access or correct your data:</strong> most of it is on the Account and Settings
-screens. For anything else, contact <span class="placeholder">[contact email]</span>.</p>
+screens. For anything else, contact <a href="mailto:safestepske@gmail.com">safestepske@gmail.com</a>.</p>
 
 <p>If you are in Kenya, the Data Protection Act 2019 gives you the rights to be informed, to
 access, to correct, to delete and to object to processing. If you are in the EU or UK, the
@@ -257,7 +266,7 @@ for the lessons, quizzes, checklists or route planner to work.</p>
   <li>Where a school or Scout group sets up accounts for minors, that organisation is
   responsible for obtaining consent from parents or guardians.</li>
   <li>A parent or guardian can ask us to delete a child's account at
-  <span class="placeholder">[contact email]</span>.</li>
+  <a href="mailto:safestepske@gmail.com">safestepske@gmail.com</a>.</li>
 </ul>
 
 <h3>8. Security</h3>
@@ -267,7 +276,7 @@ provider. Server-side secrets are never sent to the browser. The database enforc
 access at row level. Sign-in attempts are rate limited and logged.</p>
 
 <p>No system is perfectly secure. If you believe you have found a vulnerability, please report
-it to <span class="placeholder">[contact email]</span> rather than publishing it.</p>
+it to <a href="mailto:safestepske@gmail.com">safestepske@gmail.com</a> rather than publishing it.</p>
 
 <h3>9. Changes to this policy</h3>
 
@@ -372,21 +381,58 @@ breaks these terms. Where it is reasonable to do so, we will tell you why.</p>
 
 <h3>9. Governing law</h3>
 
-<p>These terms are governed by the laws of <span class="placeholder">[jurisdiction — the
-Republic of Kenya unless advised otherwise]</span>, and disputes are subject to the
-jurisdiction of its courts.</p>
+<p>These terms are governed by the laws of the Republic of Kenya, and disputes are
+subject to the jurisdiction of its courts. If you are a consumer, this does not remove any
+protection given to you by the mandatory law of the country in which you live.</p>
 
 <h3>10. Contact</h3>
 
-<p>Questions about these terms or your data:
-<span class="placeholder">[contact email]</span> ·
-<span class="placeholder">[operator legal name and postal address]</span>.</p>
+<p>Questions about these terms, your data, or a request to erase it:
+<a href="mailto:safestepske@gmail.com">safestepske@gmail.com</a>.
+We aim to reply within 14 days.</p>
+
+<p>SafeSteps is published by the team behind <strong>Project 360&deg; Shield</strong>, working
+with the Kenya Scouts Association. The registered company name and postal address of the
+publishing entity are not stated on this page yet; they will be added once the entity is
+registered, and you can always reach us on the e-mail address above in the meantime.</p>
 
 <a class="back" href="./index.html">← Back to SafeSteps</a>
 
-<p class="updated" style="margin-top:22px;">SafeSteps · Project 360° Shield · Kenya Scouts
-Association. This page is served separately from the app so it can be read without an account
-and without JavaScript.</p>
+<!-- Footer. This page had no way to reach the other legal document or the app
+     once you had scrolled to the bottom, and no copyright line. -->
+<footer style="margin-top:26px; padding-top:18px; border-top:1px solid var(--border); text-align:center;">
+  <nav aria-label="Footer" style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px 6px; margin-bottom:12px;">
+    <a href="./index.html" style="min-height:44px; display:inline-flex; align-items:center; padding:0 10px; color:var(--teal); font-weight:700; text-decoration:none;">Home</a>
+    <span aria-hidden="true" style="color:var(--border);">·</span>
+    <a href="#privacy" style="min-height:44px; display:inline-flex; align-items:center; padding:0 10px; color:var(--teal); font-weight:700; text-decoration:none;">Privacy</a>
+    <span aria-hidden="true" style="color:var(--border);">·</span>
+    <a href="#terms" style="min-height:44px; display:inline-flex; align-items:center; padding:0 10px; color:var(--teal); font-weight:700; text-decoration:none;">Terms</a>
+    <span aria-hidden="true" style="color:var(--border);">·</span>
+    <a href="mailto:safestepske@gmail.com" style="min-height:44px; display:inline-flex; align-items:center; padding:0 10px; color:var(--teal); font-weight:700; text-decoration:none;">Contact</a>
+  </nav>
+  <p style="font-size:12px; color:var(--dim); margin:0 0 4px; line-height:1.5;">
+    &copy; <span id="legalYear">2026</span> SafeSteps · Project 360&deg; Shield, Kenya
+  </p>
+  <p style="font-size:12px; color:var(--dim); opacity:0.8; margin:0 0 6px; line-height:1.5;">
+    Road safety guidance only — not a substitute for medical or legal advice.
+  </p>
+  <p style="font-size:12px; color:var(--dim); margin:0; line-height:1.5;">
+    Emergency: <a href="tel:112" style="color:var(--red); font-weight:800; text-decoration:none;">112</a> ·
+    <a href="tel:999" style="color:var(--red); font-weight:800; text-decoration:none;">999</a>
+  </p>
+  <p style="font-size:12px; color:var(--dim); opacity:0.8; margin:10px 0 0; line-height:1.5;">
+    This page is served separately from the app so it can be read without an account and
+    without JavaScript.
+  </p>
+</footer>
+<script>
+  // Correct the copyright year from Jan 1 of any later year. The markup ships
+  // 2026 so the year is still right with JavaScript disabled.
+  (function(){
+    var y = document.getElementById('legalYear');
+    if (y) y.textContent = String(new Date().getFullYear());
+  })();
+</script>
 
 </div>
 </body>

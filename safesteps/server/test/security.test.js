@@ -260,6 +260,62 @@ test('path traversal and server source are not reachable', async () => {
   }
 });
 
+test('a missing file returns the branded 404 page with a 404 status', async () => {
+  // Before this, a dead link showed plain text "Not found" — no branding, no way
+  // back into the app, no emergency numbers. The status must stay 404 so search
+  // engines and uptime checks do not treat dead URLs as real pages.
+  for (const attempt of ['/definitely-not-here.png', '/js/nope.js', '/assets/missing.png']) {
+    const response = await fetch(`${base}${attempt}`);
+    assert.equal(response.status, 404, `${attempt} must be 404, got ${response.status}`);
+    assert.match(response.headers.get('content-type') || '', /text\/html/,
+      `${attempt} should serve the HTML 404 page`);
+    const body = await response.text();
+    assert.match(body, /We couldn't find that page/, `${attempt} should show the 404 copy`);
+    // The page must offer a way out, including a dialable emergency number.
+    assert.match(body, /href="\.\/index\.html"/, '404 page needs a link back to the app');
+    assert.match(body, /href="tel:112"/, '404 page should offer the emergency number');
+  }
+});
+
+test('the 404 page keeps a strict status even for a deep missing path', async () => {
+  const response = await fetch(`${base}/a/b/c/d/deep-missing.png`);
+  assert.equal(response.status, 404);
+  const body = await response.text();
+  assert.match(body, /<title>Page not found \(404\)/, 'the tab title should say 404');
+});
+
+test('extension-less routes still fall back to the app shell, not the 404 page', async () => {
+  // The app is a single-page document with hash routes. A deep link like
+  // /some-route must still open the app, which is what makes an installed PWA
+  // and a shared link work.
+  const response = await fetch(`${base}/some-client-route`);
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /SafeSteps - Road Safety Companion/);
+});
+
+test('the app ships a real favicon set and an HTML 404 page', () => {
+  for (const file of ['favicon.ico', '404.html', 'icons/apple-touch-icon-180.png']) {
+    assert.ok(fs.existsSync(path.join(staticFiles.ROOT, file)), `${file} is missing`);
+  }
+  const index = fs.readFileSync(path.join(staticFiles.ROOT, 'index.html'), 'utf8');
+  assert.match(index, /<link rel="icon" href="favicon\.ico"/, 'index.html must reference favicon.ico');
+  // A page without an icon shows a blank tab; legal.html had none at all.
+  const legal = fs.readFileSync(path.join(staticFiles.ROOT, 'legal.html'), 'utf8');
+  assert.match(legal, /<link rel="icon"/, 'legal.html must declare an icon');
+});
+
+test('the service worker cache version moves with the app shell', () => {
+  // A stale cache would keep serving an old index.html after a deploy, which is
+  // how a "fix" appears not to have shipped.
+  const sw = fs.readFileSync(path.join(staticFiles.ROOT, 'sw.js'), 'utf8');
+  const version = /CACHE_VERSION = '(v\d+)'/.exec(sw);
+  assert.ok(version, 'sw.js must declare CACHE_VERSION');
+  assert.ok(Number(version[1].slice(1)) >= 49, `CACHE_VERSION should be v49 or later, got ${version[1]}`);
+  for (const asset of ['./favicon.ico', './icons/apple-touch-icon-180.png', './404.html']) {
+    assert.ok(sw.includes(`'${asset}'`), `${asset} should be in the offline app shell`);
+  }
+});
+
 test('static resolver refuses to escape its root', () => {
   assert.equal(staticFiles.resolveSafe('/../etc/passwd'), null);
   assert.equal(staticFiles.resolveSafe('/server/server.js'), null);

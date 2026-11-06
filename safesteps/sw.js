@@ -1,6 +1,6 @@
 // SafeSteps Service Worker
 // Bump this on every deploy so old caches get cleared out automatically.
-const CACHE_VERSION = 'v48';
+const CACHE_VERSION = 'v49';
 const CACHE_NAME = `safesteps-${CACHE_VERSION}`;
 
 // Core app shell — everything needed to run fully offline, including the
@@ -8,6 +8,7 @@ const CACHE_NAME = `safesteps-${CACHE_VERSION}`;
 // on the very first offline load (not just after a page has been visited).
 const APP_SHELL = [
   './index.html',
+  './404.html',
   './manifest.json',
   './assets/security.js',
   './assets/brand-logo.png',
@@ -22,6 +23,8 @@ const APP_SHELL = [
   './icons/icon-512.png',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon-180.png',
+  './favicon.ico',
   './data/accidents.json',
   './data/lessons.json',
   './data/quiz.json',
@@ -134,6 +137,16 @@ async function networkFirst(request) {
     if (cached) return cached;
     // Last resort: try to serve the app shell so the person still gets
     // *something* usable instead of a browser error page.
+    // A request for a real file (not an app route) that could not be fetched
+    // is a genuine dead link — show the branded 404, with a 404 status.
+    const wantsFile = /\.[a-z0-9]+$/i.test(new URL(request.url).pathname);
+    if (wantsFile) {
+      const notFound = await caches.match('./404.html');
+      if (notFound) return new Response(await notFound.text(), {
+        status: 404,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
     const shellFallback = await caches.match('./index.html');
     if (shellFallback) return shellFallback;
     return new Response(

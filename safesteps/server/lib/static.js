@@ -58,7 +58,8 @@ function resolveSafe(pathname) {
 
   // Never expose the server code, git metadata or dotfiles.
   const rel = path.relative(ROOT, target);
-  if (rel.startsWith('server' + path.sep) || rel === 'server' || rel.split(path.sep).some((p) => p.startsWith('.'))) {
+  const segments = rel.split(/[\\/]/);
+  if (segments[0] === 'server' || segments.some((p) => p.startsWith('.'))) {
     return null;
   }
   return target;
@@ -78,8 +79,7 @@ function injectNonce(html, nonce) {
 function sendFile(res, filePath, req, { status = 200 } = {}) {
   const ext = path.extname(filePath).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext)) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not found');
+    serveNotFound(res, req);
     return;
   }
 
@@ -121,13 +121,41 @@ function sendFile(res, filePath, req, { status = 200 } = {}) {
   fs.createReadStream(filePath).pipe(res);
 }
 
+/**
+ * Serve the branded 404 page.
+ *
+ * Previously a missing file returned plain text "Not found", which is what a
+ * user saw on a dead link: no branding, no way back, no emergency numbers. The
+ * status code stays 404 (a 200 would let search engines index dead URLs and tell
+ * monitoring the page exists), and there is a plain-text fallback in case the
+ * page itself is ever missing.
+ */
+function serveNotFound(res, req) {
+  const page = path.join(ROOT, '404.html');
+  if (fs.existsSync(page)) {
+    sendFile(res, page, req, { status: 404 });
+    return true;
+  }
+  const body = 'Not found';
+  res.writeHead(404, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
+  });
+  res.end(String(req.method || 'GET').toUpperCase() === 'HEAD' ? undefined : body);
+  return true;
+}
+
 function serve(req, res, pathname) {
   // `/` and extension-less paths resolve to the SPA shell.
   let target = resolveSafe(pathname);
-  if (!target) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not found');
-    return true;
+  if (!target) return serveNotFound(res, req);
+
+  if (fs.existsSync(target) && !fs.statSync(target).isDirectory()
+      && !ALLOWED_EXTENSIONS.has(path.extname(target).toLowerCase())) {
+    // resolveSafe() passed this through, but sendFile() would refuse the
+    // extension and emit a bare text 404. Answer with the branded page instead.
+    return serveNotFound(res, req);
   }
 
   if (!fs.existsSync(target) || fs.statSync(target).isDirectory()) {
@@ -137,9 +165,10 @@ function serve(req, res, pathname) {
     } else if (!path.extname(target)) {
       target = path.join(ROOT, 'index.html');
     } else {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Not found');
-      return true;
+      // A request for a real file that does not exist (.js, .png, .json) is a
+      // genuine 404. An extension-less path is a client-side route, and those
+      // still fall back to the SPA shell above.
+      return serveNotFound(res, req);
     }
   }
 
@@ -147,4 +176,4 @@ function serve(req, res, pathname) {
   return true;
 }
 
-module.exports = { serve, resolveSafe, injectNonce, MIME, ROOT };
+module.exports = { serve, serveNotFound, resolveSafe, injectNonce, MIME, ROOT };

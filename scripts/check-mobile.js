@@ -61,70 +61,102 @@ try {
   process.exit(2);
 }
 
-const html = fs.readFileSync(target, 'utf8');
+const DOCUMENTS = [
+  { name: 'app shell', file: 'index.html' },
+  { name: 'legal', file: 'legal.html' },
+  { name: '404', file: '404.html' },
+];
+
+// Pick the documents to audit: an explicit path audits only that file, otherwise
+// every HTML page the app serves. "Every page is mobile optimised" is only true
+// if it was checked for every page — legal.html and 404.html were never audited.
+const explicit = args.find((a) => !a.startsWith('--'));
+const rootDir = path.join(__dirname, '..', 'safesteps');
+const docsToCheck = explicit
+  ? [{ name: path.basename(explicit), file: path.basename(explicit), abs: path.resolve(explicit) }]
+  : DOCUMENTS
+      .map((d) => ({ ...d, abs: path.join(rootDir, d.file) }))
+      .filter((d) => fs.existsSync(d.abs));
+
 const errors = [];
 const warnings = [];
 const notes = [];
 
 let currentScreen = 'page';
-function err(device, msg) { errors.push({ device, msg, screen: currentScreen }); }
-function warn(device, msg) { warnings.push({ device, msg, screen: currentScreen }); }
+let currentDoc = 'index.html';
+function err(device, msg) { errors.push({ doc: currentDoc, device, msg, screen: currentScreen }); }
+function warn(device, msg) { warnings.push({ doc: currentDoc, device, msg, screen: currentScreen }); }
 
 // ---------------------------------------------------------------------------
 // 0. Static checks that do not need a layout engine
 // ---------------------------------------------------------------------------
-const viewport = html.match(/<meta[^>]+name=["']viewport["'][^>]*>/i);
-if (!viewport) {
-  err('all', 'no <meta name="viewport"> — the page renders at 980px on every phone');
-} else {
-  const content = viewport[0];
-  if (/user-scalable\s*=\s*no/i.test(content)) err('all', 'viewport disables pinch-zoom (user-scalable=no)');
-  if (/maximum-scale\s*=\s*1(\.0)?["'\s>]/i.test(content)) warn('all', 'viewport caps zoom at 1.0 (maximum-scale=1)');
-  if (!/width\s*=\s*device-width/i.test(content)) err('all', 'viewport does not set width=device-width');
-  notes.push(`viewport: ${content.replace(/\s+/g, ' ')}`);
-}
+function staticChecks(html) {
+  const viewport = html.match(/<meta[^>]+name=["']viewport["'][^>]*>/i);
+  if (!viewport) {
+    err('all', 'no <meta name="viewport"> — the page renders at 980px on every phone');
+  } else {
+    const content = viewport[0];
+    if (/user-scalable\s*=\s*no/i.test(content)) err('all', 'viewport disables pinch-zoom (user-scalable=no)');
+    if (/maximum-scale\s*=\s*1(\.0)?["'\s>]/i.test(content)) warn('all', 'viewport caps zoom at 1.0 (maximum-scale=1)');
+    if (!/width\s*=\s*device-width/i.test(content)) err('all', 'viewport does not set width=device-width');
+    notes.push(`${currentDoc} viewport: ${content.replace(/\s+/g, ' ')}`);
+  }
 
-// Any declaration that forces a minimum width wider than the narrowest phone
-// will overflow no matter what the parent is.
-const widest = Math.max(...DEVICES.map((d) => d.width));
-const minWidths = [...html.matchAll(/min-width\s*:\s*(\d+)px/gi)].map((m) => +m[1]).filter((n) => n > 0);
-for (const mw of new Set(minWidths)) {
-  if (mw > 320) err('all', `min-width:${mw}px cannot fit a 320px viewport (iPhone SE 1st gen)`);
-  else if (mw > 300) warn('all', `min-width:${mw}px leaves only ${320 - mw}px on a 320px screen`);
-}
+  // Any declaration that forces a minimum width wider than the narrowest phone
+  // will overflow no matter what the parent is.
+  const minWidths = [...html.matchAll(/min-width\s*:\s*(\d+)px/gi)].map((m) => +m[1]).filter((n) => n > 0);
+  for (const mw of new Set(minWidths)) {
+    if (mw > 320) err('all', `min-width:${mw}px cannot fit a 320px viewport (iPhone SE 1st gen)`);
+    else if (mw > 300) warn('all', `min-width:${mw}px leaves only ${320 - mw}px on a 320px screen`);
+  }
 
-// Grid/flex tracks with fixed px columns that sum past the narrowest screen.
-const gridTracks = [...html.matchAll(/grid-template-columns\s*:\s*([^;"]+)/gi)].map((m) => m[1]);
-for (const t of gridTracks) {
-  const px = [...t.matchAll(/(\d+)px/g)].map((m) => +m[1]);
-  const sum = px.reduce((a, b) => a + b, 0);
-  if (px.length > 1 && sum > 320) err('all', `grid-template-columns "${t.trim()}" needs ${sum}px, wider than a 320px screen`);
-}
+  // Grid/flex tracks with fixed px columns that sum past the narrowest screen.
+  const gridTracks = [...html.matchAll(/grid-template-columns\s*:\s*([^;"]+)/gi)].map((m) => m[1]);
+  for (const t of gridTracks) {
+    const px = [...t.matchAll(/(\d+)px/g)].map((m) => +m[1]);
+    const sum = px.reduce((a, b) => a + b, 0);
+    if (px.length > 1 && sum > 320) err('all', `grid-template-columns "${t.trim()}" needs ${sum}px, wider than a 320px screen`);
+  }
 
-// Safe-area awareness for anything pinned to an edge.
-if (/position\s*:\s*fixed/i.test(html) && !/env\(safe-area-inset/i.test(html)) {
-  warn('all', 'fixed-position elements exist but no env(safe-area-inset-*) is used — content can sit under the notch/home bar');
-}
+  // Safe-area awareness for anything pinned to an edge.
+  if (/position\s*:\s*fixed/i.test(html) && !/env\(safe-area-inset/i.test(html)) {
+    warn('all', 'fixed-position elements exist but no env(safe-area-inset-*) is used — content can sit under the notch/home bar');
+  }
 
-// Text inputs below 16px trigger an automatic zoom on iOS that never zooms back.
-// Scan ONLY the <style> blocks: an earlier version ran this over the whole file
-// and matched a JavaScript line (`input.value = ""; ... {`), inventing a CSS
-// rule that did not exist. A checker that reports phantom problems gets ignored,
-// which is worse than not having it.
-const cssText = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join('\n');
-const inputRules = [...cssText.matchAll(/([^{}]*\b(?:input|textarea|select)\b[^{}]*)\{([^}]*)\}/gi)];
-const inputFontSizes = [];
-for (const [, sel, body] of inputRules) {
-  const m = body.match(/font-size\s*:\s*([\d.]+)px/i);
-  if (m && !/type\s*=\s*["']?checkbox/i.test(sel)) inputFontSizes.push(+m[1]);
-}
-// Inline style attributes on inputs bypass the stylesheet, so check them too.
-for (const m of html.matchAll(/<(?:input|textarea|select)\b[^>]*style="[^"]*font-size\s*:\s*([\d.]+)px[^"]*"/gi)) {
-  inputFontSizes.push(+m[1]);
-}
-const tinyInputs = inputFontSizes.filter((n) => n < 16);
-if (tinyInputs.length) {
-  warn('all', `${tinyInputs.length} input rule(s) set font-size below 16px (${[...new Set(tinyInputs)].join(', ')}) — iOS zooms the page on focus and does not zoom back`);
+  // Text inputs below 16px trigger an automatic zoom on iOS that never zooms back.
+  // Scan ONLY the <style> blocks: an earlier version ran this over the whole file
+  // and matched a JavaScript line (`input.value = ""; ... {`), inventing a CSS
+  // rule that did not exist. A checker that reports phantom problems gets ignored,
+  // which is worse than not having it.
+  const cssText = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join('\n');
+  const inputRules = [...cssText.matchAll(/([^{}]*\b(?:input|textarea|select)\b[^{}]*)\{([^}]*)\}/gi)];
+  const inputFontSizes = [];
+  for (const [, sel, body] of inputRules) {
+    const m = body.match(/font-size\s*:\s*([\d.]+)px/i);
+    if (m && !/type\s*=\s*["']?checkbox/i.test(sel)) inputFontSizes.push(+m[1]);
+  }
+  // Inline style attributes on inputs bypass the stylesheet, so check them too.
+  for (const m of html.matchAll(/<(?:input|textarea|select)\b[^>]*style="[^"]*font-size\s*:\s*([\d.]+)px[^"]*"/gi)) {
+    inputFontSizes.push(+m[1]);
+  }
+  const tinyInputs = inputFontSizes.filter((n) => n < 16);
+  if (tinyInputs.length) {
+    warn('all', `${tinyInputs.length} input rule(s) set font-size below 16px (${[...new Set(tinyInputs)].join(', ')}) — iOS zooms the page on focus and does not zoom back`);
+  }
+
+  // The document itself must not be allowed to scroll sideways. Without this a
+  // single over-wide child silently gives the whole page a horizontal scrollbar.
+  // Only count a real declaration, not a selector or media condition.
+  const hasClip = /(?:^|[}{])\s*(?:[^{}@]*,\s*)?(?:html|body)\b[^{}]*\{[^}]*overflow-x\s*:\s*(?:clip|hidden)/i.test(cssText)
+    || /\*\s*\{[^}]*overflow-x\s*:\s*(?:clip|hidden)/i.test(cssText);
+  if (!hasClip) {
+    warn('all', 'no overflow-x guard on html/body — one over-wide child gives the page a horizontal scrollbar');
+  }
+
+  // Images without a max-width can be wider than the phone.
+  if (/<img\b/i.test(html) && !/(?:^|[},;\s])img\b[^{}@]*\{[^}]*max-width\s*:\s*100%/i.test(cssText)) {
+    warn('all', 'images are not constrained with max-width:100% — a large image overflows the screen');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -240,52 +272,81 @@ function screensOf(doc) {
 }
 
 let screenCount = 0;
+const perDoc = [];
 
-for (const device of DEVICES) {
-  const window = new Window({ width: device.width, height: device.height, url: 'https://safesteps.local/' });
-  window.document.write(html);
-  window.document.close();
-  try {
-    const doc = window.document;
-    const screens = screensOf(doc);
-    screenCount = screens.length;
+for (const doc_ of docsToCheck) {
+  const html = fs.readFileSync(doc_.abs, 'utf8');
+  currentDoc = doc_.file;
 
-    // Normalise the starting state first: the HTML ships one page with
-    // class="active" already, so without this the first audit screen and the
-    // markup's default page are both visible and findings get mis-attributed.
-    for (const s of screens) {
-      if (s.kind === 'page') s.el.classList.remove('active');
-      else s.el.style.display = 'none';
-    }
+  // Static pass for this document.
+  currentScreen = 'page';
+  staticChecks(html);
 
-    let prev = null;
-    for (const { el } of screens) {
-      const label = el.id || (typeof el.className === 'string' ? el.className : '') || el.tagName.toLowerCase();
-      const isPage = el.tagName === 'SECTION' && el.classList.contains('page');
+  // A document with no screens (a flat legal page, the 404) still needs the
+  // document-level overflow check, so it is audited as a single screen.
+  const declaredScreens = (html.match(/<section\b[^>]*class="[^"]*\bpage\b/gi) || []).length
+    + (html.match(/<div\b[^>]*class="[^"]*\bscreen\b/gi) || []).length;
+  const docScreens = declaredScreens || 1;
 
-      // Show this one, hide the others, exactly as the router does. Only the
-      // previous screen and this one are touched: each style mutation
-      // invalidates the computed-style cache, so toggling all 33 per screen made
-      // the run quadratic and ran the heap out of memory.
-      if (prev) {
-        if (prev.kind === 'page') prev.el.classList.remove('active');
-        else prev.el.style.display = 'none';
+  for (const device of DEVICES) {
+    const window = new Window({ width: device.width, height: device.height, url: 'https://safesteps.local/' });
+    window.document.write(html);
+    window.document.close();
+    try {
+      const doc = window.document;
+      const screens = screensOf(doc);
+      if (screens.length) screenCount = screens.length;
+
+      if (!screens.length) {
+        // Flat document: one audit pass over the whole page.
+        currentScreen = doc_.file;
+        try {
+          walk(window, device, doc_.file);
+        } catch (e) {
+          err(device.name, `audit crashed: ${e.message}`);
+        }
+        continue;
       }
-      if (isPage) el.classList.add('active');
-      else el.style.display = 'flex';
-      prev = { kind: isPage ? 'page' : 'screen', el };
 
-      try {
-        walk(window, device, label);
-      } catch (e) {
-        err(device.name, `audit of ${label} crashed: ${e.message}`);
+      // Normalise the starting state first: the HTML ships one page with
+      // class="active" already, so without this the first audit screen and the
+      // markup's default page are both visible and findings get mis-attributed.
+      for (const s of screens) {
+        if (s.kind === 'page') s.el.classList.remove('active');
+        else s.el.style.display = 'none';
       }
+
+      let prev = null;
+      for (const { el } of screens) {
+        const label = el.id || (typeof el.className === 'string' ? el.className : '') || el.tagName.toLowerCase();
+        const isPage = el.tagName === 'SECTION' && el.classList.contains('page');
+
+        // Show this one, hide the others, exactly as the router does. Only the
+        // previous screen and this one are touched: each style mutation
+        // invalidates the computed-style cache, so toggling all 33 per screen made
+        // the run quadratic and ran the heap out of memory.
+        if (prev) {
+          if (prev.kind === 'page') prev.el.classList.remove('active');
+          else prev.el.style.display = 'none';
+        }
+        if (isPage) el.classList.add('active');
+        else el.style.display = 'flex';
+        prev = { kind: isPage ? 'page' : 'screen', el };
+
+        currentScreen = label;
+        try {
+          walk(window, device, label);
+        } catch (e) {
+          err(device.name, `audit of ${label} crashed: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      err(device.name, `audit crashed: ${e.message}`);
+    } finally {
+      window.happyDOM?.cancelAsync?.();
     }
-  } catch (e) {
-    err(device.name, `audit crashed: ${e.message}`);
-  } finally {
-    window.happyDOM?.cancelAsync?.();
   }
+  perDoc.push({ file: doc_.file, screens: docScreens });
 }
 
 // ---------------------------------------------------------------------------
@@ -296,18 +357,21 @@ const C = process.stdout.isTTY
   : { r: '', y: '', g: '', c: '', d: '', o: '' };
 
 console.log(`${C.c}SafeSteps mobile layout audit${C.o}`);
-console.log(`${C.d}${target}${C.o}`);
-console.log(`${C.d}${DEVICES.length} viewports (${DEVICES.map((d) => d.width).join(', ')}px) × ${screenCount || '?'} screens${C.o}\n`);
+for (const d of perDoc) {
+  console.log(`${C.d}${d.file.padEnd(12)} ${d.screens} screen${d.screens === 1 ? '' : 's'}${C.o}`);
+}
+console.log(`${C.d}${DEVICES.length} viewports (${DEVICES.map((d) => d.width).join(', ')}px) across ${perDoc.length} document(s)${C.o}\n`);
 
 for (const n of notes) console.log(`  ${C.d}·${C.o} ${n}`);
 
 // Collapse the same finding repeated on every device into one line.
 function summarize(list) {
   const map = new Map();
-  for (const { device, msg, screen } of list) {
-    if (!map.has(msg)) map.set(msg, { devices: new Set(), screens: new Set(), msg });
+  for (const { doc, device, msg, screen } of list) {
+    if (!map.has(msg)) map.set(msg, { devices: new Set(), screens: new Set(), docs: new Set(), msg });
     map.get(msg).devices.add(device);
     if (screen) map.get(msg).screens.add(screen);
+    if (doc) map.get(msg).docs.add(doc);
   }
   return [...map.values()].sort((a, b) => b.devices.size - a.devices.size);
 }
@@ -320,7 +384,7 @@ if (errs.length) {
   for (const e of errs) {
     const d = e.devices.size >= DEVICES.length ? 'all sizes' : [...e.devices].join(', ');
     const where = e.screens.size && e.screens.size < 6 ? ' in ' + [...e.screens].join(', ') : '';
-    console.log(`  ${C.r}FAIL${C.o} ${e.msg}\n       ${C.d}${d}${where}${C.o}`);
+    console.log(`  ${C.r}FAIL${C.o} ${e.msg}\n       ${C.d}[${[...e.docs].join(', ')}] ${d}${where}${C.o}`);
   }
 }
 
@@ -329,7 +393,7 @@ if (warns.length) {
   for (const w of warns) {
     const d = w.devices.size >= DEVICES.length ? 'all sizes' : [...w.devices].join(', ');
     const where = w.screens.size && w.screens.size < 6 ? ' in ' + [...w.screens].join(', ') : '';
-    console.log(`  ${C.y}WARN${C.o} ${w.msg}\n       ${C.d}${d}${where}${C.o}`);
+    console.log(`  ${C.y}WARN${C.o} ${w.msg}\n       ${C.d}[${[...w.docs].join(', ')}] ${d}${where}${C.o}`);
   }
 }
 
