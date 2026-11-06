@@ -97,6 +97,25 @@ something to do silently. It is listed under "not done" below.
 Both search boxes ran their filter on every keystroke. The SACCO lookup rebuilds
 a dozen cards per character. They are now debounced at 200 ms.
 
+### Duplicate downloads
+
+`dedupeGet()` was written for this and then never called — the same failure as
+`renderNoResults`: defined, reviewed, dead. Two real duplicates were behind it:
+
+- **`lessons.json` was re-downloaded on every visit to Learn.** The loader set
+  `lessonsDataMeta.loaded` but never read it, unlike the quiz, signs and hotspot
+  loaders, which all guard correctly. Opening Learn during the start-up warm-up
+  also fetched it twice at once.
+- **Concurrent loads raced.** Every loader checks `loaded` *before* the await and
+  sets it *after*, so any second caller during the flight started a second
+  request. `fetchSafetyJson()` now wraps the real fetch in `dedupeGet()`, which
+  closes that window for all four datasets.
+
+A failed load deliberately does **not** auto-retry on every screen open — that
+would hammer a dead connection — but the visible "Try again" and the explicit
+"check for new content" both pass `force` and do reach the network. Both
+behaviours are asserted in `scripts/check-requests.js`.
+
 ## What was deliberately not done
 
 These were on the list. They are not done for a reason, and the reason matters
@@ -155,7 +174,7 @@ rule-based knowledge base; there is no model call to stream.
 
 | Recommendation | Status |
 |---|---|
-| Prevent duplicate API calls | `dedupeGet()` in `index.html` shares in-flight GETs |
+| Prevent duplicate API calls | `dedupeGet()` shares in-flight GETs and is now actually called by `fetchSafetyJson()`; the lessons loader also stopped re-downloading on every visit. Gated by `scripts/check-requests.js` |
 | Debounce search inputs | Done, 200 ms on both search boxes |
 | Timeouts on external calls | Client default lowered 20 s → 12 s (uploads keep 30 s); the server already times out its own calls |
 | Set timeouts on external API calls | `AbortSignal.timeout` on every outbound `fetch` in `lib/` |

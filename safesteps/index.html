@@ -5603,6 +5603,13 @@ let lessons = [
     body:"Never attempt to overtake slow-moving tractors, sugarcane lorries, or overloaded timber trucks across solid yellow dividing lines (`Section 83`) or when approaching blind hills and sharp curves. When overtaking on straight dual carriageways, ensure you can see at least 300 meters of clear road ahead, signal early, and never cut back in until you can see both headlights of the overtaken vehicle in your rear-view mirror."}
 ];
 async function fetchSafetyJson(filename){
+  // Concurrent callers asking for the same file share one request. The `loaded`
+  // guards in each loader only help once a load has finished; while one is still
+  // in flight the flag is false, so opening a screen during the start-up warm-up
+  // downloaded the same JSON twice. Deduping here covers the window for free.
+  return dedupeGet("data:" + filename, function(){ return fetchSafetyJsonOnce(filename); });
+}
+async function fetchSafetyJsonOnce(filename){
   try{
     let res = await fetch("./data/" + filename);
     if(res.ok) return await res.json();
@@ -5614,12 +5621,18 @@ async function fetchSafetyJson(filename){
   throw new Error("Could not load " + filename);
 }
 let lessonsDataMeta = {loaded:false, failed:false};
-async function loadLessonsData(){
+async function loadLessonsData(force){
+  // lessonsDataMeta.loaded was set but never read, so every visit to Learn
+  // re-downloaded lessons.json — and opening Learn while the start-up warm-up
+  // was still in flight fetched it twice at once. Every other data loader here
+  // (quiz, signs, hotspots) already guards this way; lessons was the exception.
+  if(!force && (lessonsDataMeta.loaded || lessonsDataMeta.failed)) return;
   try{
     const json = await fetchSafetyJson("lessons.json");
     if(Array.isArray(json.lessons) && json.lessons.length){
       lessons = json.lessons;
       lessonsDataMeta.loaded = true;
+      lessonsDataMeta.failed = false;
       renderLessons();
     }
   }catch(err){
@@ -5657,7 +5670,7 @@ async function retryLessons(){
   lessonsDataMeta.failed = false;
   if(list) renderSkeleton(list, { rows: 3, shape: "card", label: "Loading lessons" });
   const startedAt = Date.now();
-  await loadLessonsData();
+  await loadLessonsData(true);
   if(!lessonsDataMeta.failed){
     // Minimum visible dwell: a skeleton that flashes for 80ms reads as a glitch.
     const elapsed = Date.now() - startedAt;
@@ -8271,7 +8284,7 @@ async function handleDataUpdated(file){
       showToast("🗺️ Hazard map data updated");
       break;
     case "lessons.json":
-      await loadLessonsData();
+      await loadLessonsData(true);
       showToast("📚 New lesson content available");
       break;
     case "quiz.json":

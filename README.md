@@ -24,6 +24,7 @@ scripts/verify-deployment.sh  the same gate, against a running/deployed origin
 scripts/smoke-test.js      drives the running server under realistic load
 scripts/check-mobile.js    layout audit across 8 phone sizes × every screen
 scripts/check-states.js    the ten user states, executed in a DOM (not grepped)
+scripts/check-requests.js  no dataset is downloaded twice (counting fetch stub)
 scripts/check-release.js   pre-deploy gate (cache busting, pre-cached assets)
 scripts/db-backup.sh       snapshot every table + schema + checksummed manifest
 scripts/db-restore-test.sh verify a backup really restores (offline, or to a scratch DB)
@@ -98,13 +99,14 @@ cd safesteps/server && npm test                  # 104 behavioural tests
 ./scripts/smoke-test.js http://localhost:8080    # launch-day simulation: load, abuse, offline shell
 node scripts/check-mobile.js                     # layout on 8 phone viewports × all screens
 node scripts/check-states.js                     # all ten user states behave (needs happy-dom)
+node scripts/check-requests.js                   # no duplicate dataset downloads (needs happy-dom)
 node scripts/check-release.js --since origin/main # cache-bust + pre-cached-asset gate
 ```
 
 The audit exits non-zero on failure and runs in CI on every push, every PR, and
 weekly: `.github/workflows/security.yml` (secrets, headers) and
 `.github/workflows/tests.yml` (tests on Node 20 and 22, client syntax, mobile
-layout, user states, performance budget, release gate). `check-release.js` is the one that catches the mistake
+layout, user states, request budget, performance budget, release gate). `check-release.js` is the one that catches the mistake
 that actually bites — an app-shell change without a `CACHE_VERSION` bump, after
 which every existing install keeps serving the old HTML and a rollback is
 silently ignored.

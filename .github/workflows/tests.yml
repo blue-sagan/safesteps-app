@@ -98,6 +98,12 @@ jobs:
         # helpers in a DOM and asserts on the rendered markup and ARIA roles.
         run: node scripts/check-states.js
 
+      - name: Request budget (no dataset downloaded twice)
+        # A duplicate GET is invisible in the UI — it just costs a phone on a
+        # metered connection money. Runs the real loaders against a counting
+        # fetch stub.
+        run: node scripts/check-requests.js
+
       - name: Performance budget (bytes on the wire, blocking resources)
         # Measures what a phone actually downloads: brotli bytes for the shell,
         # render-blocking stylesheets, CSS @import chains, image weights, and that
