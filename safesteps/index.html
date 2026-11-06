@@ -7920,8 +7920,8 @@ function shareLiveLocation(){
       const info = explainPermissionError(err);
       showErrorToast(info.title + " — you can still send your area instead.");
       const host = document.getElementById("sosLocationHelp");
-      if(host) host.style.display = "block";
       if(host){
+        host.style.display = "block";
         host.innerHTML =
           '<div class="perm-block" role="alert">' +
             '<b class="perm-title">📍 ' + escapeHtml(info.title) + '</b>' +
