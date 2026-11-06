@@ -7432,11 +7432,14 @@ function shareNearMissStats(){
 
 /* ---------------- COMMUNITY POSTS (violation photos, likes & comments) ---------------- */
 // Local-first, same pattern as everything else in SafeSteps: posts, likes,
-// and comments always work fully offline, saved to this device. If Cloud
-// Backup is connected AND signed in to a shared troop/county Firebase
-// project (see connectFirebase() above), posts also sync to a shared
-// "safesteps_posts" collection so the whole troop/county sees the same feed
-// in near-real-time — same opt-in model as Community Insights.
+// and comments are saved to this device and work fully offline.
+//
+// A shared troop/county feed was designed but NOT built. connectFirebase(),
+// loadFirebaseSDK(), initCloudSyncIfConfigured() and the syncPostToFirebase()
+// family below are deliberate no-ops, and there is no Cloud Backup control in
+// Settings. Wiring it up needs a Firebase project, its config keys and a
+// privacy-policy update — none of which belong in the repo — so until then
+// nothing leaves this device and no screen may claim otherwise.
 const violationTypes = [
   {ic:"🚦", label:"Jumped Red Light"}, {ic:"📵", label:"Phone While Driving"},
   {ic:"🚫", label:"Wrong Lane / Overlapping"}, {ic:"🅿️", label:"Illegal Parking"},
@@ -7636,6 +7639,9 @@ function renderPostsFeed(){
 }
 
 // ---- Optional shared sync via the user's own connected Firebase project ----
+// No-ops on purpose: the shared troop/county feed is not implemented. See the
+// comment block at the top of this section. Do not wire these to a UI control
+// unless the sync behind them is real.
 function syncPostToFirebase(post){}
 function syncLikeToFirebase(post){}
 function syncCommentToFirebase(post, comment){}
@@ -8245,9 +8251,16 @@ async function sendAutoEmail(subject, message, replyTo){
 }
 
 /* ---------------- BACKGROUND SYNC (queued emails) ---------------- */
-function queuePendingSync(subject, message, replyTo){
+function queuePendingSync(subject, message, replyTo, endpoint, extras){
   if(!Array.isArray(state.pendingSync)) state.pendingSync = [];
-  state.pendingSync.push({subject, message, replyTo, ts:new Date().toISOString()});
+  // `endpoint` is what makes this queue usable for anything other than the
+  // feedback form. Integrity referrals were told they "will be sent when you
+  // reconnect" while nothing ever retried them — this is that retry.
+  const item = Object.assign(
+    { subject, message, replyTo, endpoint: endpoint || "/api/feedback", ts: new Date().toISOString() },
+    extras || {}
+  );
+  state.pendingSync.push(item);
   persist();
   if('serviceWorker' in navigator && swRegistration && 'sync' in swRegistration){
     swRegistration.sync.register('sync-reports').catch(()=>{ /* Background Sync unsupported here — will retry on next app open instead */ });
@@ -8258,15 +8271,39 @@ async function flushPendingSync(){
   const remaining = [];
   for(const item of state.pendingSync){
     try{
-      await SS.api("/api/feedback", {
-        method: "POST",
-        body: {
-          subject: String(item.subject || "").slice(0, 120),
-          message: String(item.message || "").slice(0, 4000),
-          replyTo: item.replyTo || null
-        }
-      });
+      if(item.endpoint === "/api/integrity/dispatch"){
+        // Built at flush time so a re-sent referral reuses the same case
+        // reference the user already has.
+        await SS.api("/api/integrity/dispatch", {
+          method: "POST",
+          body: {
+            caseReference: String(item.caseReference || "").slice(0, 40),
+            subject: String(item.subject || "").slice(0, 120),
+            summary: String(item.summary || "").slice(0, 1500),
+            anonymous: item.anonymous !== false
+          }
+        });
+      } else {
+        await SS.api("/api/feedback", {
+          method: "POST",
+          body: {
+            subject: String(item.subject || "").slice(0, 120),
+            message: String(item.message || "").slice(0, 4000),
+            replyTo: item.replyTo || null
+          }
+        });
+      }
+      if(item.endpoint === "/api/integrity/dispatch" && typeof markReferralSent === "function"){
+        markReferralSent(item.caseReference);
+      }
     }catch(err){
+      // A referral denied on purpose (rate limit, unverified account) must not
+      // sit in the queue forever retrying on every launch.
+      if(item.endpoint === "/api/integrity/dispatch" && isPermanentReferralFailure(err)){
+        if(typeof markReferralFailed === "function") markReferralFailed(item.caseReference, err);
+        showToast("⚠️ One queued agency referral could not be sent — open the report to resend it.");
+        continue;
+      }
       remaining.push(item);
     }
   }
@@ -8274,6 +8311,27 @@ async function flushPendingSync(){
   state.pendingSync = remaining;
   persist();
   if(sent > 0) showToast(`📤 Sent ${sent} queued message${sent>1?"s":""} now that you're back online`);
+}
+// 4xx (except 408/429) means asking again will not help: the account is not
+// verified, the case reference is wrong, the referral limit was hit. Retrying
+// those forever on every launch is worse than surfacing them once.
+function isPermanentReferralFailure(err){
+  const status = Number(err && (err.status || (err.response && err.response.status)));
+  if(!status) return false;
+  if(status === 408 || status === 429) return false;
+  return status >= 400 && status < 500;
+}
+function markReferralSent(caseReference){
+  const rec = (state.integrityReports || []).find(r => r && r.id === caseReference);
+  if(rec){ rec.referralStatus = "sent"; persist(); }
+}
+function markReferralFailed(caseReference, err){
+  const rec = (state.integrityReports || []).find(r => r && r.id === caseReference);
+  if(rec){
+    rec.referralStatus = "failed";
+    rec.referralError = String((err && err.message) || "The agency referral was rejected.").slice(0, 200);
+    persist();
+  }
 }
 // Fired when the service worker's Cache-then-Network strategy notices a
 // dynamic data file (hotspots, lessons, traffic, NTSA stats, routing graph)
@@ -10434,6 +10492,8 @@ function toggleVoiceCommands(){
 
 /* ---------------- LOCAL STORAGE & PROFILE ENGINE ---------------- */
 let firebaseDb = null, firebaseUser = null;
+// Stubs, not a hidden feature: cloud sync is not implemented in this build.
+// Nothing here loads a third-party SDK, so nothing here can leak data.
 function loadFirebaseSDK(){ return Promise.resolve(); }
 async function connectFirebase(){}
 // If the active profile is still the untouched default ("Me"), a Google
@@ -11328,26 +11388,46 @@ Road Safety & Public Integrity for Everyone, Every Day.
   // Transmission is server-side only: the browser holds no mail credentials.
   // The server rate-limits referrals and queues them for delivery, so a
   // whistleblower cannot be used as a free mail relay.
+  const anonymous = String(rec.reporterName || "").indexOf("Redacted") !== -1;
+  const payload = {
+    caseReference: rec.id,
+    subject: String(subject).slice(0, 120),
+    summary: String(rec.description || "").slice(0, 1500),
+    anonymous: anonymous
+  };
+
   let dispatched = false;
+  let permanent = false;
   try{
-    await SS.api("/api/integrity/dispatch", {
-      method: "POST",
-      body: {
-        caseReference: rec.id,
-        subject: String(subject).slice(0, 120),
-        summary: String(rec.description || "").slice(0, 1500),
-        anonymous: String(rec.reporterName || "").indexOf("Redacted") !== -1
-      }
-    });
+    await SS.api("/api/integrity/dispatch", { method: "POST", body: payload });
     dispatched = true;
+    markReferralSent(rec.id);
   }catch(e){
     console.warn("Agency dispatch deferred:", e && e.message);
+    permanent = isPermanentReferralFailure(e);
+    if(permanent){
+      // Retrying a rejection (unverified account, over the hourly limit) on
+      // every launch would be a lie dressed as persistence.
+      markReferralFailed(rec.id, e);
+    }else{
+      // Genuinely offline or the server is down: queue it for real, so the
+      // promise below is kept by flushPendingSync() rather than by hope.
+      rec.referralStatus = "queued";
+      persist();
+      queuePendingSync(payload.subject, null, null, "/api/integrity/dispatch", {
+        caseReference: payload.caseReference,
+        summary: payload.summary,
+        anonymous: payload.anonymous
+      });
+    }
   }
 
   showSystemEmailModal(emailRecord, "SafeSteps Multi-Agency Whistleblower Dispatch");
   showToast(dispatched
     ? "🚀 Evidence referral queued for EACC, Kenya Police & NTSA desks!"
-    : "📥 Report saved locally — the referral will be sent when you reconnect.");
+    : permanent
+      ? "⚠️ Report saved on this device — the agency referral needs a signed-in, verified account before it can be sent."
+      : "📥 Report saved on this device. The referral is queued and sends automatically once you're back online.");
 }
 
 function renderIntegrityFeed(){
@@ -12406,7 +12486,7 @@ const changelogEntries = [
   ]},
   {date:"2026-07-15b", items:[
     "Community Posts now accept a short video instead of a photo, not just a photo — pick either when attaching media to a post.",
-    "Video posts are capped at 8MB (to stay usable on this device) and, for now, stay local-only — synced sharing to a troop/county feed still covers photo posts."
+    "Video posts are capped at 8MB to stay usable on this device. All posts stay local-only — a troop/county feed is not built yet."
   ]},
   {date:"2026-07-17", items:[
     "Added Integrity Whistleblower: direct multi-agency dispatch page to report corrupt road traffic police officers, NTSA enforcement officials, and emergency ambulance systems demanding illegal bribes or abandoning public duty.",
@@ -12415,7 +12495,7 @@ const changelogEntries = [
     "Added Real Google Login & System Email Engine: linking a Google account automatically dispatches an official verification receipt email from safestepske@gmail.com with downloadable RFC822 .eml receipts and live transmission logs."
   ]},
   {date:"2026-07-15", items:[
-    "Added Community Posts: snap a photo of a traffic violation (jumped light, no helmet, reckless overtaking, and more), post it to the feed, and like/comment on others' posts. Works fully offline on this device; connect Cloud Backup and sign in to share posts across your Scouts troop/county.",
+    "Added Community Posts: snap a photo of a traffic violation (jumped light, no helmet, reckless overtaking, and more), post it to the feed, and like/comment on others' posts. Posting works fully offline and everything stays on this device — there is no shared troop/county feed yet.",
     "Added a Post a Violation icon to the home screen.",
     "Fixed a manifest bug where screenshot sizes were declared as 390×844 but the actual images were 780×1688 — installers/app stores read this to preview SafeSteps, so it now matches exactly.",
     "Added 3 screenshots that existed on disk but weren't listed in the manifest (Hazard Map, Sign Scanner, Family Sync).",

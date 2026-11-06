@@ -234,6 +234,57 @@ console.log('7b. Microphone (voice commands)');
 check('#voicePermHelp host exists', d.getElementById('voicePermHelp') !== null);
 check('voice errors are mapped, not collapsed', /service-not-allowed/.test(html) && /audio-capture/.test(html));
 
+/* ------------------------------- 7c. a queued promise is actually kept */
+// The whistleblower screen used to say an agency referral "will be sent when
+// you reconnect" while nothing retried it. A reassurance the code does not
+// honour is worse than no reassurance, so the retry is asserted here.
+console.log('7c. Offline referral retry');
+const queueFns = ['isPermanentReferralFailure', 'markReferralSent', 'markReferralFailed', 'queuePendingSync', 'flushPendingSync'];
+const queueMissing = [];
+win.eval('function persist(){} var swRegistration = null;');
+win.eval('var state = window.state || {}; state.pendingSync = []; state.integrityReports = [];');
+for (const n of queueFns) {
+  try { win.eval(grab(html, n)); } catch (e) { queueMissing.push(n); }
+}
+check('the retry queue functions exist', queueMissing.length === 0, queueMissing.join(', ') || queueFns.length + ' helpers');
+
+win.eval(`
+  window.__posts = [];
+  window.__failWith = null;
+  var SS = { api: async function(path, opts){
+    window.__posts.push({ path: path, body: opts && opts.body });
+    if (window.__failWith) { var e = new Error('stub failure'); e.status = window.__failWith; throw e; }
+  }};
+`);
+win.eval('state.pendingSync = []; state.integrityReports = [{id:"INT-9", referralStatus:"queued"}];');
+win.eval(
+  'queuePendingSync("urgent", null, null, "/api/integrity/dispatch", {caseReference:"INT-9", summary:"bribe at weighbridge", anonymous:true})'
+);
+await win.eval('flushPendingSync()');
+const sentPosts = JSON.parse(win.eval('JSON.stringify(window.__posts)'));
+check('a queued referral replays to the agency endpoint', sentPosts[0]?.path === '/api/integrity/dispatch', sentPosts[0]?.path);
+check('and keeps its case reference', sentPosts[0]?.body?.caseReference === 'INT-9');
+check('and is marked sent', win.eval('state.integrityReports[0].referralStatus') === 'sent');
+
+win.eval('state.pendingSync = []; state.integrityReports = [{id:"INT-10", referralStatus:"queued"}];');
+win.eval('queuePendingSync("s", null, null, "/api/integrity/dispatch", {caseReference:"INT-10", summary:"x", anonymous:true})');
+win.eval('window.__failWith = 429;');
+await win.eval('flushPendingSync()');
+check('a rate-limited referral stays queued', win.eval('state.pendingSync.length') === 1);
+
+win.eval('state.pendingSync = []; state.integrityReports = [{id:"INT-11", referralStatus:"queued"}];');
+win.eval('queuePendingSync("s", null, null, "/api/integrity/dispatch", {caseReference:"INT-11", summary:"x", anonymous:true})');
+win.eval('window.__failWith = 403;');
+await win.eval('flushPendingSync()');
+check('a rejected referral is dropped, not retried forever', win.eval('state.pendingSync.length') === 0);
+check('and records why it failed', win.eval('state.integrityReports[0].referralStatus') === 'failed');
+
+win.eval('state.pendingSync = []; window.__failWith = null; window.__posts = [];');
+win.eval('queuePendingSync("hello", "a message", "me@example.com")');
+await win.eval('flushPendingSync()');
+const fbPosts = JSON.parse(win.eval('JSON.stringify(window.__posts)'));
+check('feedback still goes to the feedback endpoint', fbPosts[0]?.path === '/api/feedback', fbPosts[0]?.path);
+
 /* ------------------------------------------------- 8. session expired */
 group('8. Session expired');
 const se = /window\.onSessionExpired = function onSessionExpired\(\)\{[\s\S]*?\n\};/.exec(html);
