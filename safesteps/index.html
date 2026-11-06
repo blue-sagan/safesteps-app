@@ -2040,7 +2040,7 @@
 
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
         <button class="btn-teal" style="flex:1; padding:12px; font-size:13px; font-weight:800; background:linear-gradient(135deg, #00A344, #00C853); color:#fff; border:none; box-shadow:0 4px 12px rgba(0,163,68,0.35);" onclick="zoomToMyOneBlock()">📍 Zoom to My Street Block (1-Block Level)</button>
-        <button class="btn-teal" style="flex:1; padding:12px; font-size:13px; font-weight:800; background:linear-gradient(135deg, #1976D2, #1E88E5); color:#fff; border:none; box-shadow:0 4px 12px rgba(30,136,229,0.35);" onclick="refreshLiveOnlineFeed()">⚡ Sync Real-Time Feed (Accidents &amp; Weather)</button>
+        <button class="btn-teal" style="flex:1; padding:12px; font-size:13px; font-weight:800; background:linear-gradient(135deg, #1976D2, #1E88E5); color:#fff; border:none; box-shadow:0 4px 12px rgba(30,136,229,0.35);" onclick="refreshLiveOnlineFeed()">⚡ Refresh Map &amp; Weather</button>
       </div>
 
       <!-- MAP CONTAINER (HIGH-RES 500PX) -->
@@ -2061,11 +2061,11 @@
         <div style="display:flex; align-items:center; gap:10px;">
           <span style="font-size:24px;" id="lwIcon">🌤️</span>
           <div>
-            <b style="font-size:13.5px; color:var(--text); display:block;" id="lwTitle">Nairobi Highway Corridor Weather</b>
-            <span style="color:var(--text-dim);" id="lwDetails">Temp: 22°C · Rain: 0.0 mm/hr · Visibility: Clear &gt;10 km</span>
+            <b style="font-size:13.5px; color:var(--text); display:block;" id="lwTitle">Highway Corridor Weather</b>
+            <span style="color:var(--text-dim);" id="lwDetails">Checking current conditions…</span>
           </div>
         </div>
-        <span style="font-size:11.5px; font-weight:700; color:#00A344; background:rgba(0,163,68,0.15); padding:4px 10px; border-radius:999px;" id="lwRoadCondition">🟢 Road Surface: DRY &amp; SAFE</span>
+        <span style="font-size:11.5px; font-weight:700; color:#00A344; background:rgba(0,163,68,0.15); padding:4px 10px; border-radius:999px;" id="lwRoadCondition">⚪ Road Surface: checking…</span>
       </div>
 
       <div class="progress-card" style="margin-bottom:14px;">
@@ -2814,7 +2814,7 @@
       <div class="hazard-grid" id="srsRcGrid" style="grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:14px;"></div>
 
       <div class="info-banner" style="margin-top:14px;">
-        <b>Verification strategy (SRS §5):</b> Unit/contract, integration/resilience (disconnect/replay/consent/duplicate), field drives, crash validation (sled/controlled), privacy/security gates (DPIA / LIA / model-card / fairness), red-team (GPS spoof, replay, device separation, account takeover), and a go-live checklist. <b>Not solved in-app (see citations below). Interactive tier comparison table (FM vs TD vs IT vs RC) with priority/status/confidence/citation columns available in SRS section. [1][2][3][4][5][6][7][8]: Interactive tier comparison table available in the SRS section (FM/TD/IT/RC with priority/status/confidence/citation columns).</b> Real-world EmailJS delivery requires an active service account (production key baked in); live weather depends on signal; full device-level enforcement (e.g. crash sled validation, biometric release) is outside mobile-only PWA scope.
+        <b>Verification strategy (SRS §5):</b> Unit/contract, integration/resilience (disconnect/replay/consent/duplicate), field drives, crash validation (sled/controlled), privacy/security gates (DPIA / LIA / model-card / fairness), red-team (GPS spoof, replay, device separation, account takeover), and a go-live checklist. <b>Not solved in-app (see citations below). Interactive tier comparison table (FM vs TD vs IT vs RC) with priority/status/confidence/citation columns available in SRS section. [1][2][3][4][5][6][7][8]: Interactive tier comparison table available in the SRS section (FM/TD/IT/RC with priority/status/confidence/citation columns).</b> Real-world mail delivery requires an active service account configured server-side (no key is ever shipped in the browser); live weather depends on signal; full device-level enforcement (e.g. crash sled validation, biometric release) is outside mobile-only PWA scope.
       </div>
     </section>
   </main>
@@ -8879,10 +8879,10 @@ async function refreshLiveOnlineFeed(silent){
   const lwIcon = document.getElementById("lwIcon");
 
   if(!navigator.onLine){
-    if(lwTitle) lwTitle.textContent = "Offline Weather & Corridor Cache";
-    if(lwDetails) lwDetails.textContent = "Last recorded: Temp 21°C · Precipitation 0.0 mm/hr · Visibility clear";
-    if(lwCond){ lwCond.textContent = "🟢 Road Surface: DRY & SAFE"; lwCond.style.color = "#00A344"; }
-    if(!silent) showToast("📴 Offline mode: showing cached highway corridor conditions.");
+    // There is no stored observation to show — nothing ever cached one — so
+    // claim no numbers rather than a confident "DRY & SAFE".
+    showWeatherUnknown("You're offline.");
+    if(!silent) showToast("📴 Offline — live conditions can't be checked right now.");
     refreshMapMarkers();
     return;
   }
@@ -8915,13 +8915,39 @@ async function refreshLiveOnlineFeed(silent){
       }
     }
   }catch(e){
-    if(lwTitle) lwTitle.textContent = "Live Highway Corridor Telemetry (Simulated Real-Time)";
-    if(lwDetails) lwDetails.textContent = "Temp: 22.4°C · Precipitation: 0.0 mm/hr · Wind: 14 km/h ENE";
-    if(lwCond){ lwCond.textContent = "🟢 Road Surface: DRY & SAFE"; lwCond.style.color = "#00A344"; }
+    // Never invent a reading. This branch used to print "Temp: 22.4°C · Wind:
+    // 14 km/h ENE" and a green "Road Surface: DRY & SAFE" when the fetch failed
+    // — so a rider could be told the road was dry during a storm, from numbers
+    // nothing measured. If we do not know the conditions, we say we do not.
+    showWeatherUnknown("We couldn't reach the weather service.");
+    if(!silent) showToast("📴 Couldn't reach the weather service — no live conditions shown.");
   }
 
   refreshMapMarkers();
-  if(!silent) showToast("✅ Live Google Maps & Real-Time Telemetry feed synchronized!");
+  if(!silent) showToast("✅ Map data refreshed.");
+}
+
+/**
+ * Say plainly that the conditions are unknown.
+ *
+ * Deliberately shows no number and no green badge: an unknown road surface is
+ * not a safe one, and a blank is more honest than a guess.
+ */
+function showWeatherUnknown(reason){
+  const lwTitle = document.getElementById("lwTitle");
+  const lwDetails = document.getElementById("lwDetails");
+  const lwCond = document.getElementById("lwRoadCondition");
+  const lwIcon = document.getElementById("lwIcon");
+  if(lwTitle) lwTitle.textContent = "Conditions unknown right now";
+  if(lwDetails) lwDetails.textContent = (reason ? reason + " " : "") + "No temperature or surface reading is shown because none was received.";
+  if(lwCond){ lwCond.textContent = "⚪ Road Surface: UNKNOWN — ride to the conditions"; lwCond.style.color = "#9AA4B2"; }
+  if(lwIcon) lwIcon.textContent = "❔";
+}
+
+// The static markup shipped with placeholder numbers ("Temp: 22°C · Rain: 0.0
+// mm/hr", "DRY & SAFE"). Replace them before anything can be read as measured.
+function resetWeatherBarToUnknown(){
+  showWeatherUnknown(null);
 }
 
 function setMapLayer(layer){
@@ -13000,59 +13026,6 @@ async function loadSrsFeaturesData(){
     localStorage.setItem("data/srs_features.json", JSON.stringify(ref));
   }
   renderSrsProgramPage();
-}
-
-/* ---------------- LIVE WEATHER ENGINE (Trusted Source) ---------------- */
-// Uses the browser's native geolocation (with explicit user permission) to
-// fetch weather predictions from the Open-Meteo API (a trusted, open-source
-// meteorological data provider) and the Kenya Meteorological Department
-// (KMD) reference framework. The forecast covers temperature, precipitation,
-// wind, visibility, and road-surface conditions (dry, wet, slick, or flooded)
-// for the user's exact GPS coordinates. When offline or permission is denied,
-// the banner gracefully falls back to the last cached observation or shows
-// a clear advisory based on the device's timezone and season.
-// All weather predictions come from verified meteorological sources:
-//  • Kenya Meteorological Department (KMD) — official national forecasts
-//  • World Meteorological Organization (WMO) — international standards
-//  • Open-Meteo — open meteorological data aggregator (no API key required)
-// The app does NOT invent weather data; it explicitly labels when it is
-// displaying cached, predicted, or live-observed conditions.
-let liveWeatherData = null; // {tempC, rainMm, windKmh, visibilityKm, roadCondition, source}
-const weatherSourcesLabel = "Sources: Kenya Meteorological Department (KMD) [Verified: High Confidence] · WMO [Verified: High Confidence] · Open-Meteo [Open Provider: Medium Confidence — no API key required]";
-
-let liveFeedPaused = false; let liveFeedInterval = null;
-function pauseLiveFeed(){ liveFeedPaused = true; showToast("⏸️ Live feed paused — automatic updates stopped."); }
-function resumeLiveFeed(){ liveFeedPaused = false; refreshAllSafetyDataFromHost(); showToast("▶️ Live feed resumed — pulling fresh conditions."); }
-async function loadLiveWeather(force){
-  if(!navigator.geolocation || !("geolocation" in navigator)){
-    showToast("📍 Weather: Location unavailable — using local time & season estimate.");
-    applySeasonalWeatherEstimate();
-    return;
-  }
-  try{
-    const pos = await new Promise((resolve, reject)=>{
-      navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
-    });
-    const lat = pos.coords.latitude.toFixed(4);
-    const lon = pos.coords.longitude.toFixed(4);
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation,visibility,wind_speed_10m`;
-    const res = await fetch(url, {cache:"no-store"});
-    if(!res.ok) throw new Error("Weather API unavailable (offline or service down)");
-    const data = await res.json();
-    const cw = data.current_weather || {};
-    const tempC = cw.temperature || data.hourly?.temperature_2m?.[0] || 24;
-    const windKmh = cw.windspeed || data.hourly?.wind_speed_10m?.[0] || 0;
-    const rainMm = (data.hourly?.precipitation?.[0] || 0);
-    const visibilityKm = (data.hourly?.visibility ? (data.hourly.visibility[0]/1000).toFixed(1) : "Clear (>10 km)");
-    const roadCondition = rainMm > 0 ? (rainMm > 10 ? "Wet / Hydroplaning Risk" : (rainMm > 3 ? "Slick" : "Damp")) : (windKmh > 40 ? "Strong Wind — Caution" : (visibilityKm < 3 ? "Low Visibility" : "Dry & Safe"));
-    liveWeatherData = {tempC, rainMm, windKmh, visibilityKm, roadCondition, source: weatherSourcesLabel, lat, lng: lon, observed: new Date().toISOString()};
-    renderLiveWeatherBanner();
-    showToast("🌤️ Live weather: " + Math.round(tempC) + "°C · " + roadCondition);
-  }catch(err){
-    console.log("Live weather fetch note:", err);
-    showToast("📍 Using local weather estimate (check live layer for current conditions).");
-    applySeasonalWeatherEstimate();
-  }
 }
 
 function hideSplash(){

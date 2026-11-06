@@ -285,6 +285,34 @@ await win.eval('flushPendingSync()');
 const fbPosts = JSON.parse(win.eval('JSON.stringify(window.__posts)'));
 check('feedback still goes to the feedback endpoint', fbPosts[0]?.path === '/api/feedback', fbPosts[0]?.path);
 
+/* --------------------------- 7d. no invented safety readings ---------- */
+// A road-safety app must never present an unmeasured number as a measurement.
+// The weather bar used to fall back to "Temp: 22.4°C · Wind: 14 km/h ENE" and a
+// green "DRY & SAFE" badge when its fetch failed — telling a rider the road was
+// dry when nothing had checked.
+console.log('7d. Weather claims are marked, not invented');
+const lwDetails = d.getElementById('lwDetails');
+const lwCond = d.getElementById('lwRoadCondition');
+win.eval('function showToast(){}');
+try { win.eval(grab(html, 'showWeatherUnknown')); } catch (e) { /* reported below */ }
+check('an "unknown conditions" state exists', /function showWeatherUnknown\s*\(/.test(html));
+check('the static markup ships no temperature', !/\d+(\.\d+)?°C/.test(lwDetails?.textContent || ''), lwDetails?.textContent);
+check('the static markup ships no green road badge', !/DRY & SAFE/i.test(lwCond?.textContent || ''), lwCond?.textContent);
+if (/function showWeatherUnknown\s*\(/.test(html)) {
+  win.eval('showWeatherUnknown("We could not reach the service.")');
+  check('unknown state shows no number', !/\d+(\.\d+)?°C/.test(d.getElementById('lwDetails').textContent), d.getElementById('lwDetails').textContent);
+  check('unknown state is not green', !/#00A344/i.test(d.getElementById('lwRoadCondition').style.color), d.getElementById('lwRoadCondition').textContent);
+  check('unknown state says so plainly', /UNKNOWN/i.test(d.getElementById('lwRoadCondition').textContent));
+}
+// The failure branch must call the unknown handler rather than printing numbers.
+const feed = grab(html, 'refreshLiveOnlineFeed');
+// Strip comments first: the explanation of the old bug quotes the old bug, and
+// a checker that reads its own documentation as a violation is useless.
+const feedCode = feed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])[ \t]*\/\/[^\n]*/g, '$1');
+const catchBlock = feedCode.slice(feedCode.lastIndexOf('catch'));
+check('the fetch failure path invents nothing', !/\d+(\.\d+)?°C/.test(catchBlock), catchBlock.replace(/\s+/g, ' ').slice(0, 90));
+check('and it calls showWeatherUnknown', /showWeatherUnknown\(/.test(catchBlock));
+
 /* ------------------------------------------------- 8. session expired */
 group('8. Session expired');
 const se = /window\.onSessionExpired = function onSessionExpired\(\)\{[\s\S]*?\n\};/.exec(html);
