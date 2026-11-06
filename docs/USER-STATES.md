@@ -17,7 +17,7 @@ rest of the screen still works.
 | 4 | No internet | `ConnectionState` + `#connectionBanner` | Banner flips to "You're offline" (`is-offline`), everything already loaded stays usable, and it retries automatically. |
 | 5 | Slow network | `ConnectionState` (`is-slow`) | "Slow connection" with the option to retry rather than an indefinite spinner. Returns to "Back online" then hides itself. |
 | 6 | No search results | `renderNoResults()` | Echoes the query, lists real alternatives from the directory, and offers "Show all SACCOs". |
-| 7 | Permission denied | `explainPermissionError()` + `showPermissionHelp()` | Distinguishes blocked / missing device / busy camera / unsupported / timeout, each with its own fix. |
+| 7 | Permission denied | `explainPermissionError()` + `showPermissionHelp()` | Distinguishes blocked / missing device / busy camera / unsupported / timeout, each with its own fix, icon and alternative route. |
 | 8 | Session expired | `window.onSessionExpired()` | `role="alertdialog"` card that saves in-progress work, reassures the user nothing was lost, and offers resume or dismiss. |
 | 9 | Form validation | `setFieldError()` / `clearFieldError()` | Errors appear inline on the exact field, with `aria-invalid`, and clear as the user fixes them. Never one generic error at the top. |
 | 10 | Success | `showSuccessToast()` + `.next-step-highlight` | Confirms the save, then pulses the next action so the user knows what to do now. |
@@ -37,11 +37,12 @@ state:
 
 ## 7. Permission denied
 
-Three places request a device permission — location (attach to a report, and
-SOS), the camera (sign scanner), and the camera again (QR sync). All four used
-to collapse every failure into one string: *"Couldn't access the camera
-(permission denied or unavailable)"*. That sentence told the user nothing about
-what to do, and it was wrong in most cases.
+Four places request a device permission — location (attach to a report, and
+SOS), the camera (sign scanner), the camera again (QR sync), and the microphone
+(voice commands). All of them used to collapse every failure into one string:
+*"Couldn't access the camera (permission denied or unavailable)"*, or for the
+microphone *"check permissions"* — which is wrong when the device has no
+microphone at all. Those sentences told the user nothing about what to do.
 
 `explainPermissionError(err)` now maps the real browser errors:
 
@@ -68,6 +69,16 @@ through: a landmark box (`#sosLandmarkInput`) and
 `shareAreaWithoutLocation()`, which sends the emergency message via
 `navigator.share` or WhatsApp with the named landmark instead of a pin. A message
 saying roughly where you are beats no message.
+
+The icon matches the cause. A padlock on "not available on this device" sends
+the user to change a permission that was never the problem, so each kind gets
+its own: 🔒 blocked, 📵 unavailable, ⏳ busy, 🚫 unsupported, ⌛ timeout, ⚠️ unknown.
+
+Voice commands need one translation step first: `SpeechRecognition` reports
+`not-allowed`, `service-not-allowed` and `audio-capture` rather than the
+`getUserMedia` error names, so the handler maps them before asking for the
+explanation. It also turns the toggle back off, because leaving a switch on
+that can never work is worse than saying so.
 
 Every permission message ends by stating that the rest of the screen still
 works — a blocked permission is a limitation, not a failure of the app.

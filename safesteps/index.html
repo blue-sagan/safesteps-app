@@ -1956,6 +1956,7 @@
         <div class="desc">Say things like "open quiz" or "show map" to navigate hands-free</div>
         <div class="toggle-row"><span>Enable voice commands</span><label class="toggle"><input type="checkbox" id="voiceToggle" onchange="toggleVoiceCommands()"><span class="tslider"></span></label></div>
         <div class="desc" id="voiceStatus" style="margin-top:6px;"></div>
+        <div id="voicePermHelp" class="perm-host" style="display:none;"></div>
       </div>
     </section>
 
@@ -5168,9 +5169,12 @@ function showPermissionHelp(target, err, alternative){
   const info = explainPermissionError(err);
   const host = typeof target === "string" ? document.getElementById(target) : target;
   if(host){
+    // The icon must match the cause: a padlock on "not available on this device"
+    // sends the user off to change permissions that were never the problem.
+    const ICONS = { denied: "🔒", unavailable: "📵", busy: "⏳", unsupported: "🚫", timeout: "⌛", unknown: "⚠️" };
     host.innerHTML =
       '<div class="perm-block" role="alert">' +
-        '<b class="perm-title">🔒 ' + escapeHtml(info.title) + '</b>' +
+        '<b class="perm-title">' + (ICONS[info.kind] || "⚠️") + ' ' + escapeHtml(info.title) + '</b>' +
         '<span class="perm-why">' + escapeHtml(info.why) + '</span>' +
         '<span class="perm-how">' + escapeHtml(info.how) + '</span>' +
         (alternative ? '<span class="perm-alt">' + escapeHtml(alternative) + '</span>' : '<span class="perm-alt">You can carry on without it — everything else on this screen still works.</span>') +
@@ -10397,7 +10401,23 @@ function toggleVoiceCommands(){
       const said = e.results[e.results.length-1][0].transcript.toLowerCase();
       handleVoiceCommand(said);
     };
-    recognition.onerror = ()=>{ if(statusEl) statusEl.textContent = "Couldn't access the microphone — check permissions."; };
+    recognition.onerror = (e)=>{
+      // SpeechRecognition reports its own codes, not the getUserMedia error
+      // names, so map them onto the shared explanations. "not-allowed" and
+      // "aborted" are the two that actually happen in practice.
+      const rawer = (e && e.error) || "";
+      const mapped = rawer === "not-allowed" || rawer === "service-not-allowed"
+        ? { name: "NotAllowedError" }
+        : rawer === "audio-capture"
+          ? { name: "NotFoundError" }
+          : { name: "UnknownError" };
+      const info = explainPermissionError(mapped);
+      if(statusEl) statusEl.textContent = info.title + ".";
+      voiceEnabled = false;
+      const toggle = document.getElementById("voiceToggle");
+      if(toggle) toggle.checked = false;
+      showPermissionHelp("voicePermHelp", mapped, "Type your question instead — the search box works the same way.");
+    };
     recognition.onend = ()=>{ if(voiceEnabled){ try{ recognition.start(); }catch(e){} } };
     try{
       recognition.start();

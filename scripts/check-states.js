@@ -228,6 +228,12 @@ for (const id of ['sosLocationHelp', 'hazardLocationHelp', 'signScanPermHelp', '
 }
 check('SOS can send without a pin', /function shareAreaWithoutLocation\s*\(/.test(html) && /sosLandmarkInput/.test(html));
 
+// The microphone path speaks SpeechRecognition's own error codes, not
+// getUserMedia's names, so it has its own mapping to get wrong.
+console.log('7b. Microphone (voice commands)');
+check('#voicePermHelp host exists', d.getElementById('voicePermHelp') !== null);
+check('voice errors are mapped, not collapsed', /service-not-allowed/.test(html) && /audio-capture/.test(html));
+
 /* ------------------------------------------------- 8. session expired */
 group('8. Session expired');
 const se = /window\.onSessionExpired = function onSessionExpired\(\)\{[\s\S]*?\n\};/.exec(html);
