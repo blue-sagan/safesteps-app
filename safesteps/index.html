@@ -759,6 +759,19 @@
     cursor:pointer; text-decoration:underline;
   }
 
+  /* ---------- PERMISSION-DENIED EXPLANATION ---------- */
+  .perm-host{ margin:10px 0 14px; }
+  .perm-block{
+    display:flex; flex-direction:column; gap:5px;
+    border:1px solid var(--gold); border-left:4px solid var(--gold);
+    background:rgba(255,193,7,0.08); border-radius:12px; padding:13px 15px;
+  }
+  .perm-title{ font-size:13.5px; font-weight:800; color:var(--text); }
+  .perm-why{ font-size:12.5px; color:var(--text-dim); line-height:1.5; display:block; }
+  .perm-how{ font-size:12.5px; color:var(--text); line-height:1.5; display:block; font-weight:600; }
+  .perm-alt{ font-size:12px; color:var(--text-dim); line-height:1.5; display:block; margin-top:2px; }
+  .perm-block .state-btn{ align-self:flex-start; border-color:var(--gold); color:var(--gold); margin-top:8px; }
+
   /* ---------- INLINE FORM VALIDATION ---------- */
   .field-invalid{
     border-color:var(--red) !important;
@@ -1584,6 +1597,7 @@
     <!-- REPORT -->
     <section class="page" id="page-report">
       <button class="loc-btn" onclick="useMyLocation()" id="locBtn">📍 Use My Location</button>
+      <div id="hazardLocationHelp" class="perm-host" style="display:none;"></div>
       <div class="section-label">What kind of hazard?</div>
       <div class="hazard-grid" id="hazardGrid"></div>
       <div class="section-label">Describe it (optional)</div>
@@ -1808,6 +1822,7 @@
       </div>
 
       <div id="signScanStatus" style="font-size:13px; font-weight:600; color:var(--text-dim); margin-bottom:12px;"></div>
+      <div id="signScanPermHelp" class="perm-host" style="display:none;"></div>
       <div id="signScanResults"></div>
     </section>
 
@@ -1824,6 +1839,7 @@
       </a>
 
       <button class="btn-teal" onclick="shareLiveLocation()" style="margin-bottom:18px; background:var(--gold); color:#3a2600;" id="i18n_shareLocBtn">📍 Share Live Location with Trusted Contact</button>
+      <div id="sosLocationHelp" class="perm-host" style="display:none;"></div>
 
       <div class="section-label">Emergency Contacts</div>
       <div class="contacts-card">
@@ -2593,6 +2609,7 @@
         </div>
         <canvas id="syncScanCanvas" style="display:none;"></canvas>
         <div id="syncStatus" style="font-size:11.5px; color:var(--text-dim); margin-top:8px;"></div>
+        <div id="syncScanPermHelp" class="perm-host" style="display:none;"></div>
       </div>
 
       <div class="settings-block">
@@ -3617,7 +3634,9 @@ async function startSyncScanCamera(){
     status.textContent = "Point the camera at the other device's QR code…";
     syncScanLoop();
   }catch(err){
-    status.textContent = "⚠️ Couldn't access the camera. Paste a share code instead.";
+    const info = explainPermissionError(err);
+    status.textContent = "⚠️ " + info.title + " — " + info.how;
+    showPermissionHelp("syncScanPermHelp", err, "Paste the share code instead — it always works and needs no camera.");
   }
 }
 function syncScanLoop(){
@@ -5060,6 +5079,106 @@ function renderNoResults(container, opts){
         ? '<button type="button" class="state-btn" onclick="' + o.action + '">' + escapeHtml(o.actionLabel) + '</button>'
         : "") +
     '</div>';
+}
+
+/* ================================================================== */
+/* PERMISSION DENIED                                                   */
+/*                                                                     */
+/* Three places ask for a device permission: location (attach to a      */
+/* report, SOS), the camera (sign scanner) and the camera again (QR     */
+/* sync). Every one of them used to collapse all failures into one      */
+/* vague sentence - "couldn't access the camera (permission denied or   */
+/* unavailable)" - which does not tell the user which of the two it is  */
+/* or what to do next.                                                 */
+/*                                                                     */
+/* The distinction matters: a denied permission needs the user to go    */
+/* into browser settings, whereas a busy camera just needs them to      */
+/* close the other app. Those are completely different instructions.    */
+/* ================================================================== */
+
+/**
+ * Turn a getUserMedia / geolocation failure into a specific explanation and a
+ * way forward. Returns { title, why, how } — never a bare "it failed".
+ */
+function explainPermissionError(err){
+  const name = (err && err.name) || "";
+  const code = err && err.code;
+
+  // Denied outright — only the user can undo this, in browser settings.
+  if(name === "NotAllowedError" || name === "PermissionDeniedError" || code === 1){
+    return {
+      kind: "denied",
+      title: "You've blocked access",
+      why: "Your browser is set to block this for SafeSteps, so the request was refused before it reached the device.",
+      how: "Tap the padlock (or ⓘ) in the address bar → Permissions → allow it for this site, then try again."
+    };
+  }
+  // No hardware at all.
+  if(name === "NotFoundError" || name === "DevicesNotFoundError" || code === 2){
+    return {
+      kind: "unavailable",
+      title: "Not available on this device",
+      why: "No camera or location hardware was found, or the device is reporting it as unavailable.",
+      how: "You can continue without it — upload a photo, or type the location yourself."
+    };
+  }
+  // Present, but something else has it.
+  if(name === "NotReadableError" || name === "TrackStartError"){
+    return {
+      kind: "busy",
+      title: "In use by another app",
+      why: "The camera is open in another app or browser tab, so this one could not take it.",
+      how: "Close the other app or tab, then try again."
+    };
+  }
+  // Asked for something the device cannot do.
+  if(name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError"){
+    return {
+      kind: "unsupported",
+      title: "Not supported here",
+      why: "This device cannot provide the kind of camera this feature asks for.",
+      how: "Upload a photo instead — everything else works the same."
+    };
+  }
+  // Took too long / could not get a fix.
+  if(code === 3 || name === "TimeoutError"){
+    return {
+      kind: "timeout",
+      title: "Took too long",
+      why: "The device could not get a fix in time — common indoors or between tall buildings.",
+      how: "Move somewhere more open, or go ahead without it."
+    };
+  }
+  return {
+    kind: "unknown",
+    title: "Couldn't access it",
+    why: "The device did not give a reason.",
+    how: "You can continue without it — nothing else on this screen is blocked."
+  };
+}
+
+/**
+ * Show the explanation next to the control that triggered it, and say it aloud.
+ *
+ * The message always states that the rest of the screen still works, because the
+ * worst outcome of a denied permission is a user who assumes the feature is
+ * simply broken and leaves.
+ */
+function showPermissionHelp(target, err, alternative){
+  const info = explainPermissionError(err);
+  const host = typeof target === "string" ? document.getElementById(target) : target;
+  if(host){
+    host.innerHTML =
+      '<div class="perm-block" role="alert">' +
+        '<b class="perm-title">🔒 ' + escapeHtml(info.title) + '</b>' +
+        '<span class="perm-why">' + escapeHtml(info.why) + '</span>' +
+        '<span class="perm-how">' + escapeHtml(info.how) + '</span>' +
+        (alternative ? '<span class="perm-alt">' + escapeHtml(alternative) + '</span>' : '<span class="perm-alt">You can carry on without it — everything else on this screen still works.</span>') +
+      '</div>';
+    host.style.display = "block";
+  }
+  announceToScreenReader(info.title + ". " + info.why + " " + info.how);
+  return info;
 }
 
 /* ================================================================== */
@@ -6713,8 +6832,13 @@ async function startSignScanCamera(){
     if(captureBtn) captureBtn.style.display = "inline-block";
     if(status) status.textContent = "📍 Line up the road sign inside the green dashed box and tap Scan Camera Frame.";
   }catch(err){
-    if(status) status.textContent = "⚠️ Couldn't access the camera (permission denied or unavailable). You can still upload a photo or tap the sample signs below!";
+    // "permission denied or unavailable" told the user nothing: one needs a trip
+    // to browser settings, the other needs the other app closed.
+    const info = explainPermissionError(err);
+    if(status) status.textContent = "⚠️ " + info.title + ". " + info.how;
     if(placeholder) placeholder.style.display = "block";
+    showPermissionHelp("signScanPermHelp", err, "You can still upload a photo of the sign, or tap one of the sample signs below.");
+    if(info.kind === "denied") trackScreen("sign_scan_permission_denied");
   }
 }
 
@@ -7110,9 +7234,13 @@ function useMyLocation(){
       btn.textContent = `📍 Location captured (${capturedLocation.lat}, ${capturedLocation.lng})`;
       showToast("Location attached to this report");
     },
-    ()=>{
+    (err)=>{
       btn.textContent = prevLabel;
-      showToast("Couldn't get location — check location permission");
+      const info = explainPermissionError(err);
+      // A hazard report does not need a pin to be useful, so say so.
+      showPermissionHelp("hazardLocationHelp", err,
+        "You can submit the report without a location — the description and photo are still useful.");
+      showErrorToast(info.kind === "denied" ? "Location is blocked for SafeSteps — see the note under the button." : "Couldn't get location.");
     },
     {enableHighAccuracy:true, timeout:8000}
   );
@@ -7727,6 +7855,37 @@ function toggleFaDetail(){
 }
 
 /* ---------------- SHARE LIVE LOCATION ---------------- */
+/**
+ * Send the SOS message without a location fix.
+ *
+ * Reached when the location permission is refused or the device cannot get a fix.
+ * A message saying where you roughly are is far better than no message at all, so
+ * the fallback asks the user for a landmark instead of silently doing nothing.
+ */
+function shareAreaWithoutLocation(){
+  const tc = state.trustedContact || {};
+  const landmarkEl = document.getElementById("sosLandmarkInput");
+  const landmark = landmarkEl ? landmarkEl.value.trim() : "";
+  const message = landmark
+    ? `I'm in a road safety emergency, near: ${landmark}. (Location sharing was blocked on my phone.)`
+    : "I'm in a road safety emergency and need help. (Location sharing was blocked on my phone.)";
+
+  if(navigator.share){
+    navigator.share({ title: "SafeSteps SOS", text: message }).catch(() => {
+      const phone = String(tc.phone || "").replace(/[^0-9+]/g, "").replace(/^0/, "254").replace(/^\+/, "");
+      const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
+      const w = window.open(url, "_blank");
+      if(!w) showErrorToast("Allow pop-ups for SafeSteps, then try again.");
+    });
+    return;
+  }
+  const phone = String(tc.phone || "").replace(/[^0-9+]/g, "").replace(/^0/, "254").replace(/^\+/, "");
+  const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
+  const w = window.open(url, "_blank");
+  if(!w) showErrorToast("Allow pop-ups for SafeSteps, then try again.");
+  else announceToScreenReader("Opening WhatsApp with your emergency message.");
+}
+
 function shareLiveLocation(){
   const tc = state.trustedContact || {};
   if(!tc.phone){
@@ -7755,7 +7914,26 @@ function shareLiveLocation(){
       if(phone.startsWith("+")) phone = phone.slice(1);
       window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
     },
-    ()=>{ showToast("Couldn't get location — check location permission"); },
+    (err)=>{
+      // In an emergency the one thing that must not happen is a dead end. Say
+      // why, and always leave a way to send the message without a pin.
+      const info = explainPermissionError(err);
+      showErrorToast(info.title + " — you can still send your area instead.");
+      const host = document.getElementById("sosLocationHelp");
+      if(host) host.style.display = "block";
+      if(host){
+        host.innerHTML =
+          '<div class="perm-block" role="alert">' +
+            '<b class="perm-title">📍 ' + escapeHtml(info.title) + '</b>' +
+            '<span class="perm-why">' + escapeHtml(info.why) + '</span>' +
+            '<span class="perm-how">' + escapeHtml(info.how) + '</span>' +
+            '<label class="perm-why" for="sosLandmarkInput" style="margin-top:6px;">Or name a nearby landmark so they can find you:</label>' +
+            '<input id="sosLandmarkInput" type="text" placeholder="e.g. Kencom stage, Nairobi" style="width:100%; padding:11px; margin:4px 0 8px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px;">' +
+            '<button type="button" class="state-btn" onclick="shareAreaWithoutLocation()">Send without my exact location</button>' +
+          '</div>';
+      }
+      announceToScreenReader(info.title + ". " + info.how + " You can still send a message without your exact location.");
+    },
     {enableHighAccuracy:true, timeout:8000}
   );
 }
@@ -12477,7 +12655,19 @@ function searchMatatuSacco(query){
   const q = query.toLowerCase();
   const matched = sampleSaccos.filter(s => s.name.toLowerCase().includes(q) || s.route.toLowerCase().includes(q));
   if(!matched.length){
-    resEl.innerHTML = `<div class="info-banner">No registered SACCO exactly matches '${escapeHtml(query)}'. Always check the official NTSA PSV sticker on the windshield before boarding.</div>`;
+    // A bare "no match" is a dead end. Offer what is actually in the list, so the
+    // user can pick something rather than guess at spelling.
+    const examples = sampleSaccos.slice(0, 4).map(x => x.name);
+    renderNoResults(resEl, {
+      query: query.trim(),
+      suggestions: [
+        "Try just the SACCO name, e.g. " + examples.slice(0, 2).join(" or "),
+        "Known SACCOs: " + examples.join(", "),
+        "Always check the official NTSA PSV sticker on the windshield before boarding."
+      ],
+      actionLabel: "Show all SACCOs",
+      action: "document.getElementById('saccoLookupInput').value='';searchMatatuSacco('');"
+    });
     return;
   }
   resEl.innerHTML = matched.map(s => `
