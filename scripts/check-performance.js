@@ -168,6 +168,39 @@ if (noAlt.length) {
   problem(`${noAlt.length} <img> without alt text`);
 }
 
+// ---------------------------------------------------------------------------
+// Font weights: every weight requested is a separate .woff2 download.
+// ---------------------------------------------------------------------------
+const markupForCss = html
+  .replace(/<script[\s\S]*?<\/script>/gi, '')
+  .replace(/<!--[\s\S]*?-->/g, '');
+// Inline style attributes count too — most weight overrides in this app live there.
+const cssAndInline = (markupForCss.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || []).join('\n') + '\n' + markupForCss;
+const googleFontUrls = [...markupForCss.matchAll(/fonts\.googleapis\.com\/css2\?([^"']+)/g)].map((m) => m[1]);
+if (googleFontUrls.length) {
+  const requested = new Set();
+  let families = 0;
+  for (const query of googleFontUrls) {
+    for (const m of query.matchAll(/family=([A-Za-z0-9+]+)(?::wght@([0-9;]+))?/g)) {
+      families++;
+      for (const w of (m[2] || '400').split(';')) requested.add(Number(w));
+    }
+  }
+  // A weight counts as used if the stylesheet asks for it explicitly, or if it
+  // is the default (400 is what any unstyled text renders at, and <b>/<strong>
+  // render at 700 — so those two are never waste).
+  const used = new Set([400, 700]);
+  for (const m of cssAndInline.matchAll(/font-weight\s*:\s*(\d{3})/g)) used.add(Number(m[1]));
+  const wasted = [...requested].filter((w) => !used.has(w)).sort((a, b) => a - b);
+  if (wasted.length) {
+    problem(
+      `the font request asks for weight(s) ${wasted.join(', ')} that no rule uses — each is a separate .woff2 download`
+    );
+  } else {
+    note(`font weights: ${requested.size} requested (${[...requested].sort((a, b) => a - b).join(', ')}), all used, ${families} family requests`);
+  }
+}
+
 // Regression against the baseline: tolerate small drift, catch real changes.
 if (budget) {
   const pct = (a, b) => (b === 0 ? 0 : ((a - b) / b) * 100);

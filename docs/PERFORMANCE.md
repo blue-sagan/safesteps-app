@@ -73,7 +73,13 @@ the import, connect, download, download again for the font files. They are now
 with `preconnect` to both `fonts.googleapis.com` and `fonts.gstatic.com` so the
 DNS and TLS round trips happen in parallel with parsing.
 
-Only the weights the app uses are requested. The `<noscript>` fallback keeps it
+Only the weights the app uses are requested: Poppins 600/700/800 and Inter
+400/600/700. Every requested weight is a separate `.woff2` download, so this is
+now checked rather than asserted — `check-performance.js` cross-references the
+`fonts.googleapis.com` URL against the `font-weight` values that actually appear
+in the stylesheet and inline styles, and fails if a weight is fetched that
+nothing renders. Building that check found `Poppins 500` and `Inter 500` being
+downloaded for no reason; both are gone. The `<noscript>` fallback keeps it
 working with JavaScript off.
 
 Self-hosting the fonts would be better still — it would remove two third-party
