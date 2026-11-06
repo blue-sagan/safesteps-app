@@ -1,6 +1,6 @@
 // SafeSteps Service Worker
 // Bump this on every deploy so old caches get cleared out automatically.
-const CACHE_VERSION = 'v49';
+const CACHE_VERSION = 'v50';
 const CACHE_NAME = `safesteps-${CACHE_VERSION}`;
 
 // Core app shell — everything needed to run fully offline, including the

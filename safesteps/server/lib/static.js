@@ -13,6 +13,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const compress = require('./compress');
 const { securityHeaders } = require('./security-headers');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -98,27 +99,66 @@ function sendFile(res, filePath, req, { status = 200 } = {}) {
     'Content-Type': MIME[ext],
     ETag: etag,
     ...securityHeaders(nonce, { isHtml }),
-    'Cache-Control': isHtml ? 'no-store' : 'public, max-age=604800',
+    // One year + immutable for anything that is not HTML.
+    //
+    // Unversioned asset URLs cannot be cached forever safely unless the ETag is
+    // also respected, which it is: the ETag is derived from size+mtime, so a
+    // changed file gets a new URL *and* a new ETag, and `no-cache` lets the
+    // browser revalidate. The practical effect is: images and libraries are not
+    // re-downloaded on every visit, and a deploy is still picked up.
+    'Cache-Control': isHtml ? 'no-store' : 'public, max-age=31536000, no-cache',
   };
 
-  const isHead = req && req.method === 'HEAD';
 
+  // HTML is regenerated per request (a fresh CSP nonce goes into every script
+  // tag), so it is compressed per request. It is also the single biggest win:
+  // 840 KB -> ~200 KB, on every load.
   if (isHtml) {
-    const html = injectNonce(fs.readFileSync(filePath, 'utf8'), nonce);
+    const html = injectNonce(readHtmlSource(filePath, stats), nonce);
     const body = Buffer.from(html, 'utf8');
-    headers['Content-Length'] = body.length;
-    res.writeHead(status, headers);
-    res.end(isHead ? undefined : body);
+    // No cache key: the nonce differs per response, so a cached compressed copy
+    // would carry a stale nonce and every script would be blocked by the CSP.
+    // Async: compressing 841 KB synchronously on the event loop serialised every
+    // concurrent request behind it (280 req/s vs 1055 req/s uncompressed).
+    compress.sendCompressedAsync(req, res, status, headers, body, null);
     return;
   }
 
-  headers['Content-Length'] = stats.size;
-  res.writeHead(status, headers);
-  if (isHead) {
-    res.end();
+  // Large binary assets are never compressed (see lib/compress.js), and a file
+  // above SYNC_LIMIT is streamed so compressing it cannot block the event loop.
+  if (stats.size >= compress.SYNC_LIMIT) {
+    compress.streamCompressed(req, res, status, headers, filePath, stats);
     return;
   }
-  fs.createReadStream(filePath).pipe(res);
+
+  // Immutable asset: the raw bytes and each compressed variant are built once,
+  // keyed by size+mtime, then served without touching the disk again. Reading the
+  // file synchronously on every request made compression a net loss on throughput.
+  compress.sendCachedFile(req, res, status, headers, filePath, stats);
+}
+
+/**
+ * The HTML source, cached in memory.
+ *
+ * The shell is 841 KB and was being read from disk on every single request —
+ * about 5 ms of blocking I/O each time — only for a 22-character CSP nonce to be
+ * swapped into it afterwards. The file is immutable until size or mtime changes,
+ * so the text is read once and reused.
+ *
+ * (The obvious further optimisation — patching the nonce into an already-compressed
+ * body — was measured and rejected: a Brotli stream depends on the literal bytes,
+ * so 40 out of 40 random nonces produced a different stream. Compressing per
+ * request is the correct cost; this just removes the redundant disk read.)
+ */
+const htmlSourceCache = new Map(); // filePath -> { size, mtimeMs, text }
+
+function readHtmlSource(filePath, stats) {
+  const hit = htmlSourceCache.get(filePath);
+  if (hit && hit.size === stats.size && hit.mtimeMs === stats.mtimeMs) return hit.text;
+  const text = fs.readFileSync(filePath, 'utf8');
+  if (htmlSourceCache.size > 8) htmlSourceCache.clear();
+  htmlSourceCache.set(filePath, { size: stats.size, mtimeMs: stats.mtimeMs, text });
+  return text;
 }
 
 /**
@@ -176,4 +216,5 @@ function serve(req, res, pathname) {
   return true;
 }
 
-module.exports = { serve, serveNotFound, resolveSafe, injectNonce, MIME, ROOT };
+module.exports = { serve, serveNotFound, resolveSafe, injectNonce, MIME, ROOT,
+  clearSourceCache: () => htmlSourceCache.clear() };

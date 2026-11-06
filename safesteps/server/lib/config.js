@@ -164,6 +164,11 @@ const config = {
       // than login rather than looser.
       reset: [5, 15 * 60 * 1000],
       api: [300, 60 * 1000],
+      // Bug reports. A real user hitting several genuine defects in one session
+      // must not be locked out (5/hour, the forgot-password budget, did exactly
+      // that) and reporting a bug must not consume the password-reset budget.
+      // Still far too few to use as a message queue.
+      bugreport: [20, 60 * 60 * 1000],
       upload: [30, 60 * 1000],
       global: [1200, 60 * 1000],
       // Analytics ingest. Generous enough for real use (events are batched, so a

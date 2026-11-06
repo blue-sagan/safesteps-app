@@ -698,6 +698,180 @@ async function handleVaultGet(req, res) {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* Bug reports                                                         */
+/* ------------------------------------------------------------------ */
+/**
+ * Storage for defects reported from the app — both the ones a person writes and
+ * the ones the app captures automatically when something breaks.
+ *
+ * Deliberately NOT folded into /api/events: that endpoint is a closed-vocabulary
+ * analytics counter with no free text and no identifier by design. A bug report
+ * is a message from one person, so it gets its own table, its own tighter rate
+ * limit, and its own retention.
+ *
+ * Anonymous reporting is allowed on purpose. The app works without an account,
+ * so requiring sign-in to report a crash would mean the crashes that matter most
+ * (onboarding, sign-in) could never be reported at all.
+ */
+const BUG_SEVERITIES = ['low', 'medium', 'high', 'crash'];
+const BUG_SOURCES = ['automatic', 'manual'];
+const BUG_KINDS = ['network', 'javascript', 'storage', 'permission', 'other', 'timeout', 'render'];
+
+async function handleBugReport(req, res) {
+  // Tight limit: enough for a real user to report a few genuine problems, far too
+  // few to use as a message queue. Separate bucket from feedback so one cannot
+  // exhaust the other.
+  await rateLimit.enforce('bugreport', clientIpHash(req));
+  const user = await readOptionalUser(req);
+  if (user) await rateLimit.enforce('api', user.id);
+
+  const body = await readJson(req);
+  v.only(body, ['description', 'screen', 'appVersion', 'kind', 'severity', 'source', 'replyEmail', 'technical']);
+
+  const description = v.cleanText(body.description, { min: 3, max: 2000, label: 'description' });
+  const severity = body.severity ? v.cleanEnum(body.severity, BUG_SEVERITIES, 'severity') : 'medium';
+  const source = body.source ? v.cleanEnum(body.source, BUG_SOURCES, 'source') : 'manual';
+  const kind = body.kind ? v.cleanEnum(body.kind, BUG_KINDS, 'kind') : null;
+
+  // A screen id is the app's own vocabulary, not a place for free text. cleanText
+  // alone would happily store "call me on 0712…" here, so the shape is checked
+  // explicitly: lowercase letters, digits and dashes, matching a `#page-*` id.
+  let screen = null;
+  if (body.screen !== undefined && body.screen !== null && body.screen !== '') {
+    if (typeof body.screen !== 'string' || !/^[a-z][a-z0-9-]{0,31}$/.test(body.screen)) {
+      const err = new Error('That screen name is not recognised.');
+      err.status = 400;
+      err.code = 'invalid_field';
+      err.field = 'screen';
+      throw err;
+    }
+    screen = body.screen;
+  }
+
+  const appVersion = body.appVersion === undefined || body.appVersion === null
+    ? null
+    : v.cleanText(body.appVersion, { max: 24, allowNewlines: false, label: 'appVersion' });
+
+  // Only store a reply address the person actually asked us to use, and only if
+  // it is a real address. A signed-in user's address is not copied in silently.
+  const replyEmail = body.replyEmail
+    ? v.cleanEmail(body.replyEmail, 'replyEmail')
+    : null;
+
+  const record = {
+    user_id: user ? user.id : null,
+    reply_email: replyEmail,
+    description,
+    screen,
+    app_version: appVersion,
+    kind,
+    severity,
+    source,
+    status: 'new',
+  };
+
+  // Analytics gets the shape of the failure only: which screen, what class, how
+  // bad. Never the description — that stays in the bug_reports table.
+  analytics.record('bug_report', {
+    kind: kind || 'other',
+    screen: screen || null,
+    severity,
+    source,
+  });
+
+  if (!config.capabilities().auth) {
+    // Local/standalone mode: keep it on the server so it is not lost. The table
+    // is the same shape, minus the Postgres-only columns.
+    db.query(
+      'INSERT INTO bug_reports (user_id, reply_email, description, screen, app_version, kind, severity, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [record.user_id, record.reply_email, record.description, record.screen, record.app_version, record.kind, record.severity, record.source, 'new', Date.now()]
+    );
+    return sendJson(res, 201, { status: 'recorded', id: null });
+  }
+
+  // The service-role key, used directly rather than through db.rest().
+  //
+  // db.rest() authenticates with the *publishable* key, which is the `anon` role.
+  // bug_reports has RLS on with no insert policy for anon (deliberately — it
+  // holds other people's words), so that call would be rejected with a 401/403
+  // every time. This is a server-side write on the reporter's behalf, which is
+  // exactly the access the service-role key exists for.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.SUPABASE_URL;
+  if (!serviceKey || !url) {
+    // Capability said auth was available but the service key is missing: keep the
+    // report on this server rather than losing it.
+    return recordBugReportLocally(record, res);
+  }
+
+  let response;
+  try {
+    response = await fetch(`${url.replace(/\/+$/, '')}/rest/v1/bug_reports`, {
+      method: 'POST',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(record),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (err) {
+    // The platform is unreachable from this process. Do not claim success, and do
+    // not lose the report either — hand back a retryable failure.
+    throw Object.assign(new Error('Bug reporting is temporarily unavailable. Please try again shortly.'), {
+      status: 503,
+      code: 'storage_unavailable',
+    });
+  }
+
+  if (!response.ok) {
+    const raw = await response.text().catch(() => '');
+    // PGRST205 = table not found: the migration has not been applied yet. Give the
+    // operator an actionable message instead of a bare 502, and keep the report.
+    if (response.status === 404 || /PGRST205|does not exist/i.test(raw)) {
+      return recordBugReportLocally(record, res, 'bug_reports table is missing — apply the 20261106120000_bug_reports migration');
+    }
+    throw Object.assign(new Error('Could not save that report. Please try again.'), { status: 502 });
+  }
+
+  let saved = null;
+  try { saved = await response.json(); } catch (err) { saved = null; }
+  const row = Array.isArray(saved) ? saved[0] : saved;
+  sendJson(res, 201, {
+    status: 'recorded',
+    // The reporter's reference, so support can match an e-mail to a report
+    // without anyone having to exchange personal details.
+    reference: row && row.id ? String(row.id) : null,
+  });
+}
+
+/**
+ * Last resort: keep a bug report on this server when it cannot be written to the
+ * database. A report that is only in memory is still better than one that is lost,
+ * and the caller is told the truth about where it went.
+ */
+function recordBugReportLocally(record, res, warning) {
+  try {
+    db.query(
+      'INSERT INTO bug_reports (user_id, reply_email, description, screen, app_version, kind, severity, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [record.user_id, record.reply_email, record.description, record.screen, record.app_version, record.kind, record.severity, record.source, 'new', Date.now()]
+    );
+  } catch (err) {
+    // The local store may be unavailable (Node <22). Still do not lose the text.
+    try {
+      console.error('[bug-report] could not store report locally:', err && err.message);
+      console.error('[bug-report] undelivered report:', JSON.stringify({
+        screen: record.screen, kind: record.kind, severity: record.severity,
+      }));
+    } catch (e) { /* nothing more we can do */ }
+  }
+  if (warning) console.warn('[bug-report]', warning);
+  sendJson(res, 201, { status: 'recorded', reference: null, degraded: true });
+}
+
 /**
  * Anonymous hazard tallies. Deliberately aggregate-only: no user id, no
  * coordinates, no free text — so contributing cannot de-anonymise a reporter.
@@ -1104,6 +1278,7 @@ async function handle(req, res, url) {
   const routes = {
     'GET /api/config': handleConfig,
     'POST /api/events': handleEvents,
+    'POST /api/bug-report': handleBugReport,
     'GET /api/metrics': handleMetrics,
     'GET /api/auth/challenge': handleChallenge,
     'POST /api/auth/register': handleRegister,

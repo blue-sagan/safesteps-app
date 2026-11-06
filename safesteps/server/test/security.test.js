@@ -304,6 +304,60 @@ test('the app ships a real favicon set and an HTML 404 page', () => {
   assert.match(legal, /<link rel="icon"/, 'legal.html must declare an icon');
 });
 
+test('responses are compressed, and the CSP nonce still matches after decompression', async () => {
+  // The app shell is ~840 KB uncompressed on every load. Compression is the single
+  // biggest thing that makes it usable on a mobile connection — but it must not
+  // break the CSP, which relies on the nonce in the header matching the nonce
+  // injected into every <script> in the body. A cached compressed body would
+  // carry a stale nonce and every script would be blocked.
+  const response = await fetch(`${base}/`, { headers: { 'Accept-Encoding': 'br, gzip' } });
+  assert.equal(response.status, 200);
+  const encoding = response.headers.get('content-encoding');
+  assert.ok(['br', 'gzip'].includes(encoding), `expected a compressed response, got "${encoding}"`);
+  assert.equal(response.headers.get('vary'), 'Accept-Encoding');
+
+  // undici decompresses transparently, so this is the original bytes.
+  const body = await response.text();
+  const headerCsp = response.headers.get('content-security-policy') || '';
+  const headerNonce = /'nonce-([^']+)'/.exec(headerCsp);
+  assert.ok(headerNonce, 'the CSP must contain a nonce');
+  const bodyNonces = new Set([...body.matchAll(/<script nonce="([^"]+)"/g)].map((m) => m[1]));
+  assert.equal(bodyNonces.size, 1, 'every script tag must carry exactly one nonce');
+  assert.equal([...bodyNonces][0], headerNonce[1],
+    'the nonce in the body must match the one in the header, or every script is blocked');
+
+  // A client that cannot decompress must still get a usable page.
+  const plain = await fetch(`${base}/`, { headers: { 'Accept-Encoding': 'identity' } });
+  assert.equal(plain.status, 200);
+  assert.equal(plain.headers.get('content-encoding'), null);
+  assert.match(await plain.text(), /<title>SafeSteps/);
+});
+
+test('already-compressed assets are not re-compressed', async () => {
+  // Re-compressing a PNG costs CPU and makes it bigger. The icon must be served
+  // byte-for-byte, with no Content-Encoding.
+  const response = await fetch(`${base}/icons/icon-192.png`, { headers: { 'Accept-Encoding': 'br, gzip' } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-encoding'), null, 'a PNG must not be gzip/brotli-encoded');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const onDisk = fs.readFileSync(path.join(staticFiles.ROOT, 'icons', 'icon-192.png'));
+  assert.equal(bytes.length, onDisk.length, 'the image must be served unmodified');
+  assert.ok(bytes[0] === 0x89 && bytes[1] === 0x50, 'still a PNG signature');
+});
+
+test('static assets are revalidated rather than pinned stale', async () => {
+  // `immutable` on an unversioned URL would pin a stale file after a deploy.
+  const response = await fetch(`${base}/assets/security.js`);
+  const cacheControl = response.headers.get('cache-control') || '';
+  assert.match(cacheControl, /no-cache/, 'assets must revalidate so a deploy is picked up');
+  assert.doesNotMatch(cacheControl, /immutable/, 'immutable would prevent picking up a deploy');
+  const etag = response.headers.get('etag');
+  assert.ok(etag, 'a revalidating asset needs an ETag');
+
+  const revalidated = await fetch(`${base}/assets/security.js`, { headers: { 'If-None-Match': etag } });
+  assert.equal(revalidated.status, 304, 'a matching ETag must produce a 304, not a download');
+});
+
 test('the service worker cache version moves with the app shell', () => {
   // A stale cache would keep serving an old index.html after a deploy, which is
   // how a "fix" appears not to have shipped.

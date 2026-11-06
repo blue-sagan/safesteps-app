@@ -63,9 +63,35 @@ const EVENTS = Object.freeze({
   api_error: ['route', 'status'],
   client_error: ['kind'],
   account_delete: ['outcome'],
+  // Bug reporting. `kind` is the clamped error class, `screen` is the screen id,
+  // and `severity` is one of a fixed set. Crucially there is still NO free text
+  // here: the user's description is stored by the bug-report table, not mixed
+  // into analytics, so this table stays free of anything a person typed.
+  bug_report: ['kind', 'screen', 'severity', 'source'],
+  error_boundary: ['kind', 'screen'],
 });
 
 /** Field values are from a closed vocabulary too, where a vocabulary exists. */
+
+/**
+ * Fields whose value must come from a fixed set.
+ *
+ * For bug reports this matters: a `severity` of "urgent!!! my number is 0712..."
+ * is someone typing into a field, and it must not reach storage. Anything not in
+ * the list is stored as null rather than rejected outright, so the rest of the
+ * report still arrives.
+ */
+const ENUMS = Object.freeze({
+  severity: ['low', 'medium', 'high', 'crash'],
+  source: ['automatic', 'manual'],
+  kind: ['network', 'javascript', 'storage', 'permission', 'other', 'timeout', 'render'],
+});
+
+/** A screen id: the app's own vocabulary, nothing user-supplied. */
+function sanitizeScreen(value) {
+  const text = String(value === undefined || value === null ? '' : value);
+  return /^[a-z][a-z0-9-]{0,31}$/.test(text) ? text : null;
+}
 
 const buffer = [];
 let dropped = 0;
@@ -116,7 +142,14 @@ function record(name, fields = {}) {
 
   const clean = {};
   for (const field of allowed) {
-    clean[field] = sanitize(fields[field]);
+    if (ENUMS[field]) {
+      const value = String(fields[field] === undefined || fields[field] === null ? '' : fields[field]);
+      clean[field] = ENUMS[field].includes(value) ? value : null;
+    } else if (field === 'screen') {
+      clean[field] = sanitizeScreen(fields[field]);
+    } else {
+      clean[field] = sanitize(fields[field]);
+    }
   }
 
   if (buffer.length >= MAX_BUFFER) {

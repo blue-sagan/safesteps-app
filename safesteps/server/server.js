@@ -16,6 +16,16 @@
  * surface (and therefore the vulnerability surface) is as small as possible.
  */
 
+// The libuv thread pool does the Brotli/gzip work for responses (lib/compress.js).
+// The default is 4 threads, which is not enough once several people load the
+// 841 KB app shell at the same time: compressing it takes ~14 ms of CPU, so four
+// concurrent loads already queue behind each other and p95 latency climbs.
+// Must be set before anything touches the thread pool, i.e. before the first
+// require that can compress.
+if (!process.env.UV_THREADPOOL_SIZE) {
+  process.env.UV_THREADPOOL_SIZE = String(Math.max(8, require('node:os').cpus().length * 2));
+}
+
 const http = require('node:http');
 const { URL } = require('node:url');
 

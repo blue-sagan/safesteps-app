@@ -114,6 +114,25 @@ function getDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_analytics_name_time
       ON analytics_events (name, created_at DESC);
+
+    -- Bug reports (lib/bug-reports.js). Unlike analytics_events this table does
+    -- hold a person's own words, so it is deliberately separate and is never
+    -- read back into an aggregate.
+    CREATE TABLE IF NOT EXISTS bug_reports (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     TEXT,
+      reply_email TEXT,
+      description TEXT NOT NULL,
+      screen      TEXT,
+      app_version TEXT,
+      kind        TEXT,
+      severity    TEXT NOT NULL DEFAULT 'medium',
+      source      TEXT NOT NULL DEFAULT 'manual',
+      status      TEXT NOT NULL DEFAULT 'new',
+      created_at  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_bug_reports_created
+      ON bug_reports (created_at DESC);
   `);
   return db;
 }

@@ -114,7 +114,57 @@
   }
   SS.ApiError = ApiError;
 
-  async function api(pathname, { method = 'GET', body, headers = {}, timeout = 20000 } = {}) {
+  /**
+   * Called when the server says the session is no longer valid.
+   *
+   * The user's work is already saved locally by the time this runs (see
+   * SS.saveDraft), so the important part is telling the person plainly what
+   * happened and what happens next, instead of leaving a failed request that
+   * looks like a bug.
+   */
+  function handleSessionExpired() {
+    if (SS._sessionExpiredShown) return;   // one message per expiry, not one per request
+    SS._sessionExpiredShown = true;
+    if (typeof window.onSessionExpired === 'function') {
+      try { window.onSessionExpired(); return; } catch (e) { /* fall through to the generic notice */ }
+    }
+    if (typeof window.showErrorToast === 'function') {
+      window.showErrorToast('Your session expired. Nothing you had typed was lost — sign in again to continue.');
+    }
+  }
+
+  /**
+   * Keep an in-progress form safe across a session expiry, a crash or a reload.
+   *
+   * Drafts are keyed by form name and cleared only when the form is submitted
+   * successfully, so a user is never asked to re-type what they already wrote.
+   */
+  const DRAFT_PREFIX = 'safesteps_draft_';
+  SS.saveDraft = function saveDraft(name, value) {
+    try {
+      if (value === null || value === undefined || String(value).trim() === '') {
+        localStorage.removeItem(DRAFT_PREFIX + name);
+      } else {
+        localStorage.setItem(DRAFT_PREFIX + name, String(value).slice(0, 20000));
+      }
+    } catch (e) { /* storage full or blocked — a lost draft must not break the page */ }
+  };
+  SS.loadDraft = function loadDraft(name) {
+    try { return localStorage.getItem(DRAFT_PREFIX + name) || ''; } catch (e) { return ''; }
+  };
+  SS.clearDraft = function clearDraft(name) {
+    try { localStorage.removeItem(DRAFT_PREFIX + name); } catch (e) {}
+  };
+
+  // Default request timeout.
+  //
+  // 20s was long enough that a stalled request looked like a frozen app: on a
+  // weak connection the screen simply stopped responding with no explanation.
+  // 12s is still generous for a mobile network, and anything that legitimately
+  // takes longer (an upload, a PDF render) passes its own longer timeout.
+  const DEFAULT_TIMEOUT_MS = 12000;
+
+  async function api(pathname, { method = 'GET', body, headers = {}, timeout = DEFAULT_TIMEOUT_MS } = {}) {
     const init = {
       method,
       credentials: 'same-origin', // cookies are HttpOnly + SameSite=Strict
@@ -132,14 +182,42 @@
       if (token) init.headers['X-CSRF-Token'] = token;
     }
 
+    // Tell the user when a request is taking unusually long, rather than leaving
+    // them watching a screen that looks frozen.
+    if (typeof window.ConnectionState !== 'undefined') {
+      try { window.ConnectionState.markSlow(); } catch (e) {}
+    }
+
     let response;
     try {
       response = await fetch(pathname, init);
     } catch (error) {
+      if (typeof window.ConnectionState !== 'undefined') {
+        try {
+          // An aborted request is a timeout, not a disconnection: the network may
+          // still be there, just slow.
+          if (error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+            window.ConnectionState.set('slow', 'Slow connection',
+              'The SafeSteps server is taking too long to reply. Your work is saved on this device.', '🐢');
+          } else {
+            window.ConnectionState.wentOffline();
+          }
+        } catch (e) {}
+      }
       throw new ApiError('You appear to be offline. SafeSteps saved nothing that could be lost — try again when you reconnect.', {
         status: 0,
         code: 'network_unavailable',
       });
+    } finally {
+      if (typeof window.ConnectionState !== 'undefined') {
+        try { window.ConnectionState.clearSlow(); } catch (e) {}
+      }
+    }
+
+    if (response.status === 401) {
+      // Do not throw first: the user should learn about the expiry from one clear
+      // message, not from whichever request happened to fail first.
+      handleSessionExpired();
     }
 
     const text = await response.text();

@@ -110,6 +110,8 @@ check here will be discovered by a user instead.
 | 7 | Disk / dead tuples | `./scripts/db-usage.sh` | warns on its own thresholds |
 | 8 | Server errors | `app_events` where `name = 'api_error'` | any sustained 5xx on a core route |
 | 9 | Sign-in failure spike | `app_events` where `name = 'login_fail'` | rate jumps well above baseline |
+| 10 | Bug reports arriving | `bug_reports` where `status = 'new'` | any rise is a defect someone hit; a spike on one screen means that screen is broken |
+| 11 | Crash-severity reports | `bug_reports` where `severity = 'crash'` | one is one too many — investigate before the next deploy |
 | 10 | Cost / plan limits | host + Supabase dashboards (§4) | approaching any quota |
 
 A cron that covers 5–7 in one line:
@@ -125,8 +127,9 @@ Detailed in `docs/FREE-PLAN-LIMITS.md`. The short version, in order:
 1. **Supabase pauses a free project after 7 days of low activity** — the most
    likely interruption for a new app, and it happens during the quiet weeks. The
    owner gets an email ~a week ahead; make sure that address is one you read.
-2. **Database size** — 500 MB free. Currently ~11 MB. `app_events` is the table
-   to watch; it purges after 180 days, but a burst of traffic is what would move
+2. **Database size** — 500 MB free. Currently ~11 MB. `app_events` and
+   `bug_reports` are the tables to watch; both purge after 180 days, but a burst
+   of traffic (or of defects) is what would move
    it.
 3. **Egress** — 5 GB free. The app is offline-first and caches its shell, so
    this moves slowly.

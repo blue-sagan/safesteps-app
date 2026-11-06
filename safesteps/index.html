@@ -92,8 +92,21 @@
     }
   }
 </script>
+<!-- Webfonts.
+     These were previously pulled in with @import at the top of the <style> block
+     below, which serialises the load: parse 40 KB of CSS, discover the import,
+     connect, download, then download the font files. As <link> tags the preload
+     scanner finds them immediately, and the two preconnects remove the DNS and
+     TLS round trips. `display=swap` means text is readable in the fallback font
+     straight away rather than invisible. Only the weights the app actually uses
+     are requested (400/500/600/700/800 across both families). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+<noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap">
+</noscript>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
 
   :root, [data-theme="dark"]{
     --bg:#0A0F1C; --bg2:#121A2E; --card:#121A2E; --card2:#1A2440;
@@ -629,13 +642,6 @@
     width:100%; padding:12px; border:1px solid var(--border); border-radius:13px; background:var(--card); color:var(--teal);
     font-family:'Poppins',sans-serif; font-weight:700; font-size:12.5px; cursor:pointer; margin-bottom:16px;
   }
-  /* In-page error state (used when a data file cannot be loaded). */
-  .load-error{
-    border:1px solid var(--red); border-left:4px solid var(--red);
-    background:rgba(244,67,54,0.08); border-radius:12px;
-    padding:14px 16px; margin-bottom:12px;
-  }
-  .load-error .fa-more-btn{ margin-bottom:0; width:auto; padding:10px 18px; }
   .fa-detail{display:none;}
   .fa-detail.open{display:block;}
 
@@ -717,6 +723,138 @@
   }
   .floating-sos-center:active{ transform:scale(.93); }
 
+
+  /* ---------- NEXT-STEP HIGHLIGHT ---------- */
+  /* After a success, the "what next" banner pulses once so the next action is
+     obvious without the user having to read the whole screen again. */
+  .next-step-highlight{
+    animation:nextStepPulse 0.9s ease-in-out 2;
+    border-color:var(--teal) !important;
+  }
+  @keyframes nextStepPulse{
+    0%, 100%{ box-shadow:0 0 0 0 rgba(0,163,68,0); }
+    50%{ box-shadow:0 0 0 4px rgba(0,163,68,0.35); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .next-step-highlight{ animation:none; border-width:2px; }
+  }
+
+  /* ---------- SESSION EXPIRED CARD ---------- */
+  .session-card{
+    position:fixed; left:50%; bottom:calc(120px + env(safe-area-inset-bottom, 0px));
+    transform:translateX(-50%); width:calc(100% - 28px); max-width:452px;
+    z-index:1600; padding:16px 18px; border-radius:16px;
+    background:var(--card); border:1px solid var(--gold);
+    box-shadow:0 14px 40px rgba(0,0,0,0.45);
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .session-card[hidden]{ display:none; }
+  .session-card > b{ font-size:14.5px; color:var(--text); }
+  .session-card > span{ font-size:12.5px; color:var(--text-dim); line-height:1.5; }
+  .session-actions{ display:flex; gap:8px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+  .session-actions .state-btn{ margin-top:0; border-color:var(--gold); color:var(--gold); }
+  .session-dismiss{
+    min-height:44px; padding:0 14px; border:none; background:none;
+    color:var(--text-dim); font-family:inherit; font-size:12.5px; font-weight:700;
+    cursor:pointer; text-decoration:underline;
+  }
+
+  /* ---------- INLINE FORM VALIDATION ---------- */
+  .field-invalid{
+    border-color:var(--red) !important;
+    box-shadow:0 0 0 2px rgba(244,67,54,0.25) !important;
+  }
+  .field-error{
+    color:var(--red); font-size:12px; font-weight:700; line-height:1.4;
+    margin:6px 2px 10px; display:flex; gap:6px; align-items:flex-start;
+  }
+  .field-error::before{ content:"⚠"; flex-shrink:0; }
+
+  /* ---------- BUG REPORT CONSENT ROW ---------- */
+  .bug-consent{
+    display:flex; align-items:center; gap:10px; margin:10px 0 12px;
+    font-size:12.5px; color:var(--text-dim); cursor:pointer;
+    min-height:44px;
+  }
+  .bug-consent input{
+    width:20px; height:20px; flex-shrink:0; accent-color:var(--teal);
+    cursor:pointer; margin:0;
+  }
+
+  /* ---------- EMPTY / ERROR / NO-RESULTS STATE BLOCKS ---------- */
+  .state-block{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:26px 18px; margin:6px 0; border-radius:16px;
+    background:var(--card); border:1px dashed var(--border);
+  }
+  .state-error{ border-style:solid; border-color:var(--red); background:rgba(244,67,54,0.07); }
+  .state-ico{ font-size:30px; line-height:1; margin-bottom:10px; }
+  .state-title{ font-size:14px; font-weight:800; color:var(--text); margin-bottom:6px; display:block; }
+  .state-body{ font-size:12.5px; color:var(--text-dim); line-height:1.5; display:block; max-width:34ch; }
+  .state-list{
+    text-align:left; margin:10px 0 0; padding-left:20px;
+    font-size:12.5px; color:var(--text-dim); line-height:1.6;
+  }
+  .state-btn{
+    margin-top:14px; min-height:44px; padding:0 20px; border-radius:11px;
+    border:1px solid var(--teal); background:transparent; color:var(--teal);
+    font-family:inherit; font-size:13px; font-weight:800; cursor:pointer;
+  }
+  .state-btn:active{ transform:scale(0.97); }
+  .state-error .state-btn{ border-color:var(--red); color:var(--red); }
+
+  /* ---------- SKELETON LOADING ---------- */
+  .sk-wrap{ display:block; }
+  .sk-card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:14px; margin-bottom:10px;
+  }
+  .sk-line{
+    height:11px; border-radius:6px; margin-bottom:9px;
+    background:linear-gradient(90deg, var(--card2) 25%, var(--border) 37%, var(--card2) 63%);
+    background-size:400% 100%;
+    animation:skShimmer 1.4s ease-in-out infinite;
+  }
+  .sk-line:last-child{ margin-bottom:0; }
+  .sk-w90{ width:90%; } .sk-w80{ width:80%; } .sk-w70{ width:70%; }
+  .sk-w60{ width:60%; } .sk-w50{ width:50%; } .sk-w40{ width:40%; }
+  @keyframes skShimmer{ 0%{ background-position:100% 0; } 100%{ background-position:0 0; } }
+  /* Respect a user who has asked for less motion: static grey blocks still read
+     as "content is coming" without the movement. */
+  @media (prefers-reduced-motion: reduce){
+    .sk-line{ animation:none; background:var(--card2); }
+    .conn-banner{ animation:none; }
+  }
+
+  /* ---------- CONNECTION / SLOW-NETWORK BANNER ---------- */
+  .conn-banner{
+    position:fixed; top:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:480px; z-index:1500;
+    display:flex; align-items:center; gap:10px;
+    padding:calc(9px + env(safe-area-inset-top, 0px)) 14px 9px;
+    font-size:12.5px; line-height:1.35;
+    background:var(--card2); color:var(--text);
+    border-bottom:1px solid var(--border);
+    box-shadow:0 4px 16px rgba(0,0,0,0.25);
+    /* Enters from above instead of appearing instantly, which reads as a crash
+       rather than a state change. */
+    animation:connSlideDown .22s ease-out;
+  }
+  .conn-banner[hidden]{ display:none; }
+  .conn-banner.is-offline{ background:#7F1D1D; border-bottom-color:#B91C1C; color:#fff; }
+  .conn-banner.is-slow{ background:#78350F; border-bottom-color:#B45309; color:#fff; }
+  .conn-banner.is-back{ background:var(--teal); border-bottom-color:var(--teal-dark); color:#04220f; }
+  @keyframes connSlideDown{ from{ transform:translate(-50%,-100%); } to{ transform:translate(-50%,0); } }
+  .conn-ico{ font-size:16px; flex-shrink:0; }
+  .conn-text{ flex:1; min-width:0; display:block; }
+  .conn-text b{ display:block; font-size:13px; font-weight:800; }
+  .conn-text span{ display:block; font-size:11.5px; opacity:0.9; }
+  .conn-action{
+    flex-shrink:0; min-height:36px; padding:0 14px; border-radius:9px;
+    border:1px solid currentColor; background:transparent; color:inherit;
+    font-family:inherit; font-size:12px; font-weight:800; cursor:pointer;
+  }
+  .conn-action:active{ transform:scale(0.97); }
 
   .toast{
     position:fixed; bottom:170px; left:50%; transform:translateX(-50%); background:var(--card2); color:var(--text);
@@ -1600,7 +1738,7 @@
       <!-- CAMERA FRAME & UPLOAD PREVIEW -->
       <div id="signScanCameraWrap" style="position:relative; width:100%; border-radius:18px; overflow:hidden; background:#050B14; margin-bottom:14px; border:1px solid var(--border); box-shadow:var(--shadow-sm); min-height:220px; display:flex; align-items:center; justify-content:center;">
         <video id="signScanVideo" autoplay playsinline muted style="width:100%; display:none; max-height:340px; object-fit:cover;"></video>
-        <img id="signScanUploadPreview" alt="Uploaded road sign preview" style="width:100%; display:none; max-height:340px; object-fit:contain; padding:10px;">
+        <img id="signScanUploadPreview" decoding="async" alt="Uploaded road sign preview" style="width:100%; display:none; max-height:340px; object-fit:contain; padding:10px;">
         <div id="signScanTargetBox" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:55%; aspect-ratio:1; border:3px dashed rgba(0,163,68,0.85); border-radius:16px; pointer-events:none; display:none;"></div>
         
         <!-- AR ROAD SIGN LIVE OVERLAY BOX -->
@@ -2070,7 +2208,7 @@
       </div>
 
       <div style="margin-bottom:14px;">
-        <input type="text" id="rightsSearchInput" placeholder="🔍 Search rights, penalties, or regulations (e.g. zebra crossing, speed limit, bribe, helmet, 30 km/h)…" style="width:100%; padding:14px; border-radius:14px; border:2px solid var(--teal); background:var(--card); color:var(--text); font-size:16px;" oninput="searchRoadRights(this.value)">
+        <input type="text" id="rightsSearchInput" placeholder="🔍 Search rights, penalties, or regulations (e.g. zebra crossing, speed limit, bribe, helmet, 30 km/h)…" style="width:100%; padding:14px; border-radius:14px; border:2px solid var(--teal); background:var(--card); color:var(--text); font-size:16px;" oninput="debouncedSearchRoadRights(this.value)">
       </div>
 
       <div class="pill-row" id="rightsCategoryTabs" style="flex-wrap:wrap; margin-bottom:16px; gap:6px;">
@@ -2382,9 +2520,9 @@
       <div class="settings-block">
         <h3>Trusted Contact</h3>
         <div class="desc">Used by the SOS button to quickly share your location</div>
-        <input type="text" id="tcName" placeholder="Name (e.g. Mum)">
-        <input type="text" id="tcPhone" placeholder="Phone number">
-        <input type="text" id="tcEmail" placeholder="Email address">
+        <input type="text" id="tcName" placeholder="Name (e.g. Mum)" autocomplete="name" aria-label="Trusted contact name">
+        <input type="tel" inputmode="tel" autocomplete="tel" id="tcPhone" placeholder="Phone number, e.g. 0712 345 678" aria-label="Trusted contact phone number">
+        <input type="email" inputmode="email" autocomplete="email" id="tcEmail" placeholder="Email address (optional)" aria-label="Trusted contact email address">
         <button class="btn-teal" onclick="saveTrustedContact()">💾 Save Contact</button>
       </div>
 
@@ -2414,6 +2552,18 @@
         <div class="desc" id="feedbackReplyHint" style="margin-top:-4px;"></div>
         <textarea class="report-note" id="feedbackText" rows="3" placeholder="Your feedback about SafeSteps…"></textarea>
         <button class="btn-teal" onclick="submitFeedback()">📝 Send Feedback</button>
+      </div>
+
+      <div class="settings-block">
+        <h3>Report a Problem</h3>
+        <div class="desc">Something broken or behaving oddly? Tell us in your own words — no technical detail needed. We attach what the app already knows so you don't have to describe it.</div>
+        <textarea class="report-note" id="bugDescription" rows="3" placeholder="e.g. The quiz score reset when I went back to the menu"></textarea>
+        <label class="bug-consent">
+          <input type="checkbox" id="bugReplyConsent">
+          <span>It's okay to e-mail me about this (optional)</span>
+        </label>
+        <button class="btn-teal" onclick="submitBugReport()">🐞 Send Bug Report</button>
+        <div class="desc" id="bugReportResult" role="status" aria-live="polite"></div>
       </div>
 
       <div class="settings-block">
@@ -2470,7 +2620,7 @@
 
       <div class="settings-block">
         <h3>About</h3>
-        <img src="assets/about-poster.jpg" alt="Project 360° Shield — Child Road Safety, Kenya Scouts emblem" loading="lazy" style="width:100%; border-radius:14px; margin-bottom:14px; display:block;">
+        <img src="assets/about-poster.jpg" alt="Project 360° Shield — Child Road Safety, Kenya Scouts emblem" loading="lazy" decoding="async" width="480" height="715" style="width:100%; height:auto; border-radius:14px; margin-bottom:14px; display:block;">
         <p style="font-size:12.5px; line-height:1.65; color:var(--text-dim); margin:0 0 12px;">
           <b style="color:var(--text);">About SafeSteps</b><br>
           SafeSteps is a free, offline-first road safety app for pedestrians, matatu and bus passengers, boda boda riders and passengers, families, and school communities alike.
@@ -2585,7 +2735,7 @@
         <b style="font-size:15px; color:var(--text); display:block; margin-bottom:6px;">🔍 Quick SACCO Safety Rating Lookup</b>
         <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px;">Search any registered Matatu SACCO or fleet to verify their speed governor compliance status and customer care hotline:</p>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
-          <input type="text" id="saccoLookupInput" placeholder="e.g. 2NOK SACCO, Kukena, Super Metro, Embu Neno" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px;" oninput="searchMatatuSacco(this.value)">
+          <input type="text" id="saccoLookupInput" placeholder="e.g. 2NOK SACCO, Kukena, Super Metro, Embu Neno" style="flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:16px;" oninput="debouncedSearchMatatuSacco(this.value)">
         </div>
         <div id="saccoLookupResults"></div>
       </div>
@@ -2780,6 +2930,19 @@
 <!-- LIVE ARIA SCREEN READER ANNOUNCER -->
 <div id="ariaLiveAnnouncer" class="sr-only" aria-live="polite" role="status"></div>
 
+<!-- CONNECTION BANNER: says what the app is doing when the network is missing,
+     slow, or just came back, instead of leaving the user on a screen that silently
+     is not updating. Not aria-live: the same information is announced through
+     #ariaLiveAnnouncer so it is not read out twice. -->
+<div id="connectionBanner" class="conn-banner" hidden>
+  <span class="conn-ico" id="connectionIcon" aria-hidden="true">📡</span>
+  <span class="conn-text">
+    <b id="connectionTitle">You're offline</b>
+    <span id="connectionDetail">Saved screens still work. Changes are kept on this device.</span>
+  </span>
+  <button type="button" class="conn-action" id="connectionAction" onclick="retryConnection()">Retry</button>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="update-toast" id="updateToast" role="status">
@@ -2896,6 +3059,15 @@
   </div>
 </div>
 
+<!-- Third-party libraries.
+     These are deliberately NOT deferred. `defer` would let the app's own script
+     below run first, and the app initialises the hazard map (Leaflet), the QR
+     code and the sign scanner during start-up. With the libraries still in
+     flight those guarded `typeof L === "undefined"` branches would take the
+     "library missing" path and the map would simply never render — a silent
+     regression traded for a few hundred milliseconds. They stay synchronous, at
+     the very bottom of the document, so the cost is paid after the markup is
+     parsed but before the app's initialisation needs them. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -4658,6 +4830,583 @@ document.addEventListener("keydown", function(e){
   if(sheet && sheet.style.display !== "none" && sheet.style.display !== "") closeMoreActionSheet();
 });
 
+/* ================================================================== */
+/* FORM VALIDATION                                                     */
+/*                                                                     */
+/* Errors are attached to the field that caused them, not collected     */
+/* into a toast at the top of the screen. A toast saying "check your    */
+/* details" makes the user hunt for the bad field; a red outline under  */
+/* the field that is wrong is not ambiguous.                            */
+/*                                                                     */
+/* Everything here is also announced, because a red border alone is     */
+/* invisible to a screen-reader user.                                  */
+/* ================================================================== */
+
+const PHONE_RE_KE = /^(?:\+?254|0)([17]\d{8})$/;      // 0712..., +254712..., 0112...
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Show an error under a field and mark the field itself. */
+function setFieldError(input, message){
+  if(!input) return;
+  const id = input.id;
+  input.classList.add("field-invalid");
+  input.setAttribute("aria-invalid", "true");
+  let msg = document.getElementById(id + "-error");
+  if(!msg){
+    msg = document.createElement("div");
+    msg.id = id + "-error";
+    msg.className = "field-error";
+    msg.setAttribute("role", "alert");
+    // Insert directly after the field, so the message sits where the mistake is.
+    if(input.parentNode) input.parentNode.insertBefore(msg, input.nextSibling);
+  }
+  msg.textContent = message;
+  input.setAttribute("aria-describedby", id + "-error");
+}
+
+function clearFieldError(input){
+  if(!input) return;
+  input.classList.remove("field-invalid");
+  input.removeAttribute("aria-invalid");
+  const id = input.id;
+  const msg = document.getElementById(id + "-error");
+  if(msg) msg.remove();
+  if(input.getAttribute("aria-describedby") === id + "-error") input.removeAttribute("aria-describedby");
+}
+
+/** Clear a field's error as soon as the user starts fixing it. */
+function watchField(input, validate){
+  if(!input || input.__ssWatched) return;
+  input.__ssWatched = true;
+  input.addEventListener("input", function(){
+    if(input.classList.contains("field-invalid") && (!validate || validate(input.value) === null)){
+      clearFieldError(input);
+    }
+  });
+}
+
+/**
+ * Validate one field. Returns null when valid, or the message to show.
+ *
+ * Messages say what to type, not what is wrong: "Use a Kenyan mobile number,
+ * e.g. 0712 345 678" gets the user unstuck; "invalid input" does not.
+ */
+function validateTrustedContactPhone(value){
+  const v = String(value || "").trim();
+  if(!v) return "Enter a phone number, e.g. 0712 345 678";
+  if(!PHONE_RE_KE.test(v.replace(/[\s-]/g, ""))) return "Use a Kenyan number, e.g. 0712 345 678 or +254712345678";
+  return null;
+}
+
+function validateEmailOptional(value){
+  const v = String(value || "").trim();
+  if(!v) return null;                       // optional
+  if(!EMAIL_RE.test(v)) return "That doesn't look like an e-mail address — e.g. name@example.com";
+  return null;
+}
+
+// Normalise a Kenyan number to +254 for storage, so the same person entered as
+// "0712…" and "+254712…" does not become two contacts.
+function normalizeKePhone(value){
+  const digits = String(value || "").replace(/[\s-()]/g, "");
+  const m = /^(?:\+?254|0)([17]\d{8})$/.exec(digits);
+  return m ? "+254" + m[1] : digits;
+}
+
+/* ================================================================== */
+/* SESSION EXPIRY                                                      */
+/*                                                                     */
+/* When the server rejects a session, the user must not simply be       */
+/* locked out mid-task. Everything typed so far is on this device        */
+/* already (the app is local-first and SS.saveDraft keeps open forms),   */
+/* so the job here is to say that plainly and offer the shortest route   */
+/* back in — not to silently sign the person out.                       */
+/* ================================================================== */
+window.onSessionExpired = function onSessionExpired(){
+  // Nothing is discarded. Reassure first, then explain.
+  const draftNote = "Anything you had typed is still on this device and will be here when you sign back in.";
+
+  let banner = document.getElementById("sessionExpiredCard");
+  if(!banner){
+    banner = document.createElement("div");
+    banner.id = "sessionExpiredCard";
+    banner.className = "session-card";
+    banner.setAttribute("role", "alertdialog");
+    banner.setAttribute("aria-labelledby", "sessionExpiredTitle");
+    banner.setAttribute("aria-describedby", "sessionExpiredBody");
+    banner.innerHTML =
+      '<b id="sessionExpiredTitle">🔒 Your session expired</b>' +
+      '<span id="sessionExpiredBody"></span>' +
+      '<div class="session-actions">' +
+        '<button type="button" class="state-btn" onclick="resumeSession()">Sign in again</button>' +
+        '<button type="button" class="session-dismiss" onclick="dismissSessionExpired()">Not now</button>' +
+      '</div>';
+    document.body.appendChild(banner);
+  }
+  const body = document.getElementById("sessionExpiredBody");
+  if(body) body.textContent = "You were signed out because your session timed out. " + draftNote;
+  banner.hidden = false;
+  announceToScreenReader("Your session expired. " + draftNote + " Sign in again to continue.");
+  const btn = banner.querySelector("button");
+  if(btn) try{ btn.focus(); }catch(e){}
+};
+
+function dismissSessionExpired(){
+  const card = document.getElementById("sessionExpiredCard");
+  if(card) card.hidden = true;
+  // Let the message appear again on the next genuine expiry.
+  if(window.SS) window.SS._sessionExpiredShown = false;
+}
+
+function resumeSession(){
+  dismissSessionExpired();
+  showPage("account");
+  // The account screen owns sign-in; land the user on it rather than guessing
+  // which control to focus across a large template.
+  setTimeout(function(){
+    const target = document.getElementById("accountEmailInput") || document.querySelector("#page-account input");
+    if(target && target.focus) try{ target.focus(); }catch(e){}
+  }, 120);
+}
+
+/* ================================================================== */
+/* UI STATE PRIMITIVES                                                 */
+/*                                                                     */
+/* One shared vocabulary for the five states a data-backed screen can   */
+/* be in, so every screen answers the same questions the same way:      */
+/*   renderSkeleton  — what am I waiting for, and roughly how long      */
+/*   renderEmptyState — what is this screen, before there is any data   */
+/*   renderErrorState — what went wrong, and how do I fix it            */
+/*   renderNoResults  — nothing matched, what else could I try          */
+/*                                                                     */
+/* Before this each screen invented its own markup or, more often, just */
+/* showed nothing at all.                                               */
+/* ================================================================== */
+
+/**
+ * A skeleton placeholder shaped like the content that is coming.
+ *
+ * Deliberately shaped rather than a spinner: a spinner says "wait", a skeleton
+ * says "wait, and here is what will appear", which makes the same delay feel
+ * shorter. It replaces the container's contents, so it must only be used on a
+ * container that is about to be re-rendered.
+ */
+function renderSkeleton(container, opts){
+  if(!container) return;
+  const o = Object.assign({ rows: 3, shape: "card", label: "Loading" }, opts || {});
+  const shapes = {
+    card: '<div class="sk-line sk-w90"></div><div class="sk-line sk-w70"></div><div class="sk-line sk-w40"></div>',
+    list: '<div class="sk-line sk-w60"></div><div class="sk-line sk-w80"></div>',
+    text: '<div class="sk-line sk-w90"></div><div class="sk-line sk-w90"></div><div class="sk-line sk-w50"></div>',
+  };
+  const inner = shapes[o.shape] || shapes.card;
+  container.innerHTML = '<div role="status" aria-live="polite" aria-busy="true" class="sk-wrap">' +
+    '<span class="sr-only">' + escapeHtml(o.label) + '…</span>' +
+    Array.from({ length: o.rows }, () => '<div class="sk-card" aria-hidden="true">' + inner + '</div>').join("") +
+    '</div>';
+}
+
+/**
+ * The state of a screen before it has any data.
+ *
+ * Explains what the screen is for and offers the action that would create the
+ * first item, so an empty screen is a starting point rather than a dead end.
+ */
+function renderEmptyState(container, opts){
+  if(!container) return;
+  const o = Object.assign({ icon: "📭", title: "Nothing here yet", body: "", actionLabel: "", action: "" }, opts || {});
+  container.innerHTML =
+    '<div class="state-block state-empty">' +
+      '<span class="state-ico" aria-hidden="true">' + o.icon + '</span>' +
+      '<b class="state-title">' + escapeHtml(o.title) + '</b>' +
+      (o.body ? '<span class="state-body">' + escapeHtml(o.body) + '</span>' : "") +
+      (o.actionLabel && o.action
+        ? '<button type="button" class="state-btn" onclick="' + o.action + '">' + escapeHtml(o.actionLabel) + '</button>'
+        : "") +
+    '</div>';
+}
+
+/**
+ * Something failed. Says what failed, in ordinary words, and gives a retry.
+ *
+ * `retry` is a JS expression string (an existing function call) rather than a
+ * closure, to match the inline-handler style used everywhere else in this file.
+ */
+function renderErrorState(container, opts){
+  if(!container) return;
+  const o = Object.assign({ title: "Something went wrong", body: "", retryLabel: "Try again", retry: "" }, opts || {});
+  container.innerHTML =
+    '<div class="state-block state-error" role="alert">' +
+      '<span class="state-ico" aria-hidden="true">⚠️</span>' +
+      '<b class="state-title">' + escapeHtml(o.title) + '</b>' +
+      (o.body ? '<span class="state-body">' + escapeHtml(o.body) + '</span>' : "") +
+      (o.retry ? '<button type="button" class="state-btn" onclick="' + o.retry + '">↻ ' + escapeHtml(o.retryLabel) + '</button>' : "") +
+    '</div>';
+}
+
+/**
+ * A search returned nothing. Never a bare "no results" — always a way forward.
+ */
+function renderNoResults(container, opts){
+  if(!container) return;
+  const o = Object.assign({ query: "", suggestions: [], actionLabel: "", action: "" }, opts || {});
+  const list = (o.suggestions || []).map(t => '<li>' + escapeHtml(t) + '</li>').join("");
+  container.innerHTML =
+    '<div class="state-block state-empty">' +
+      '<span class="state-ico" aria-hidden="true">🔍</span>' +
+      '<b class="state-title">' + (o.query ? 'No match for “' + escapeHtml(o.query) + '”' : "No matches") + '</b>' +
+      (list ? '<ul class="state-list">' + list + '</ul>' : "") +
+      (o.actionLabel && o.action
+        ? '<button type="button" class="state-btn" onclick="' + o.action + '">' + escapeHtml(o.actionLabel) + '</button>'
+        : "") +
+    '</div>';
+}
+
+/* ================================================================== */
+/* PERFORMANCE HELPERS                                                 */
+/* ================================================================== */
+
+/**
+ * Debounce: run `fn` once the user has stopped typing for `wait` ms.
+ *
+ * Both search boxes ran their filter on every keystroke. The SACCO lookup
+ * re-renders up to a dozen cards (with a QR-sized SVG inside), so typing
+ * "Super Metro" rebuilt the list twelve times to show the same final result.
+ * On a slow phone that is visible lag between a key press and the letter
+ * appearing.
+ */
+function debounce(fn, wait){
+  let timer = null;
+  return function debounced(){
+    const args = arguments;
+    const self = this;
+    clearTimeout(timer);
+    timer = setTimeout(function(){ fn.apply(self, args); }, wait || 180);
+  };
+}
+
+/**
+ * Collapse duplicate in-flight GETs for the same URL.
+ *
+ * Two screens that both ask for the same data on start-up used to make two
+ * identical requests. Sharing the response is safe for GETs because the result
+ * is not mutated by the caller. Non-GET requests are never shared — a POST is a
+ * side effect and must happen once per call.
+ */
+// Created lazily on first use: both helpers live at the top of the file, long
+// before their target functions are declared, and a debounced wrapper resolves
+// the target at call time rather than at definition time.
+let _debouncedSearchRoadRights = null;
+function debouncedSearchRoadRights(value){
+  if(!_debouncedSearchRoadRights) _debouncedSearchRoadRights = debounce(function(v){ searchRoadRights(v); }, 200);
+  _debouncedSearchRoadRights(value);
+}
+let _debouncedSearchMatatuSacco = null;
+function debouncedSearchMatatuSacco(value){
+  if(!_debouncedSearchMatatuSacco) _debouncedSearchMatatuSacco = debounce(function(v){ searchMatatuSacco(v); }, 200);
+  _debouncedSearchMatatuSacco(value);
+}
+
+const _inFlightGets = Object.create(null);
+function dedupeGet(key, run){
+  if(_inFlightGets[key]) return _inFlightGets[key];
+  const promise = Promise.resolve().then(run).finally(function(){
+    delete _inFlightGets[key];
+  });
+  _inFlightGets[key] = promise;
+  return promise;
+}
+
+/* ================================================================== */
+/* BUG REPORTING                                                       */
+/*                                                                     */
+/* Two paths, deliberately:                                            */
+/*   manual    — the "Report a Problem" box in Settings. Friendly, and  */
+/*               asks for a description in the user's own words.        */
+/*   automatic — when the app throws an uncaught error or an API call   */
+/*               fails in a way the user cannot act on, the shape of    */
+/*               the failure is sent once per distinct signature.       */
+/*                                                                     */
+/* What is NEVER sent: anything the user typed, their location, their   */
+/* contacts, their phone number, or the contents of any screen. Only    */
+/* the screen id, an error class, the app version and the description   */
+/* they wrote themselves.                                              */
+/*                                                                     */
+/* No AI auto-fix is wired into this repository on purpose — see        */
+/* docs/BUG-REPORTING.md. A human reviews every report.                 */
+/* ================================================================== */
+
+const APP_VERSION = (function(){
+  try{
+    const el = document.getElementById("appVersionLbl");
+    const m = el && (el.textContent || "").match(/v?\d+\.\d+(?:\.\d+)?/);
+    return m ? m[0] : "1.0";
+  }catch(e){ return "1.0"; }
+})();
+
+const BUG_ENDPOINT = "/api/bug-report";
+
+function currentScreenId(){
+  const active = document.querySelector(".page.active");
+  return active ? active.id.replace("page-", "") : "unknown";
+}
+
+/**
+ * Send one report. Returns {ok, reference} and never throws: a failed bug report
+ * must not become a second bug.
+ */
+async function sendBugReport(payload){
+  try{
+    const res = await fetch(BUG_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      // 4xx is a rejected report (too short, rate-limited) — surface it.
+      // 5xx and network failures fall through to the caller's offline handling.
+      let message = "The report could not be sent.";
+      try{
+        const body = await res.json();
+        if(body && body.message) message = body.message;
+      }catch(e){}
+      return { ok: false, status: res.status, message };
+    }
+    const body = await res.json().catch(() => ({}));
+    return { ok: true, reference: body && body.reference };
+  }catch(err){
+    return { ok: false, status: 0, message: "You appear to be offline." };
+  }
+}
+
+/** The manual path: a person describing a problem in their own words. */
+async function submitBugReport(){
+  const box = document.getElementById("bugDescription");
+  const result = document.getElementById("bugReportResult");
+  const consent = document.getElementById("bugReplyConsent");
+  if(!box) return;
+
+  const description = box.value.trim();
+  if(description.length < 10){
+    setFieldError(box, description ? "A little more detail, please — at least 10 characters." : "Describe what went wrong, in your own words.");
+    try{ box.focus(); }catch(e){}
+    return;
+  }
+  clearFieldError(box);
+
+  const btn = box.parentNode && box.parentNode.querySelector("button.btn-teal");
+  if(btn) btn.disabled = true;
+  if(result) result.textContent = "Sending…";
+
+  const replyEmail = (consent && consent.checked && state.cloudEmail) ? state.cloudEmail : null;
+
+  const outcome = await sendBugReport({
+    description,
+    screen: currentScreenId(),
+    appVersion: APP_VERSION,
+    severity: "medium",
+    source: "manual",
+    replyEmail
+  });
+
+  if(btn) btn.disabled = false;
+
+  if(outcome.ok){
+    box.value = "";
+    if(consent) consent.checked = false;
+    showSuccessToast("Thanks — your report was sent ✓");
+    if(result){
+      result.innerHTML = outcome.reference
+        ? 'Received. Your reference is <b>#' + escapeHtml(outcome.reference) + '</b> — quote it if you contact support.'
+        : "Received. Thank you for helping make SafeSteps better.";
+    }
+    announceToScreenReader("Bug report sent. Thank you.");
+  }else if(outcome.status === 0){
+    // Offline: keep the text so nothing is lost, and say so.
+    if(result) result.textContent = "You're offline — your report is still here. Send it when you reconnect.";
+    showErrorToast("Couldn't send — your text is saved on this device. Try again when online.");
+    if(window.SS) try{ window.SS.saveDraft("bug-report", description); }catch(e){}
+  }else{
+    if(result) result.textContent = outcome.message || "The report could not be sent. Please try again.";
+    showErrorToast(outcome.message || "The report could not be sent.");
+  }
+}
+
+/**
+ * The automatic path.
+ *
+ * Sends the shape of an unexpected failure without asking the user anything.
+ * Deduplicated by signature, and capped, so one broken render cannot send a
+ * thousand reports.
+ */
+const _autoReported = Object.create(null);
+let _autoReportCount = 0;
+const AUTO_REPORT_MAX = 5;
+
+function reportBugAutomatically(kind, detail){
+  try{
+    // Honor the anonymous-telemetry switch. The privacy policy says that turning
+    // telemetry off stops automatic reports (a report the user chooses to send is
+    // their own action and still goes), so the code has to match that promise.
+    if(window.SS && typeof SS.analytics.allowed === "function" && !SS.analytics.allowed()) return;
+    if(_autoReportCount >= AUTO_REPORT_MAX) return;
+    const screen = currentScreenId();
+    // One report per screen+kind per app session.
+    const signature = screen + ":" + kind;
+    if(_autoReported[signature]) return;
+    _autoReported[signature] = true;
+    _autoReportCount++;
+
+    // A description the person did not write, so it must not pretend to be one.
+    const description = "Automatic report: " + kind + " error on the " + screen +
+      " screen." + (detail ? " (" + String(detail).slice(0, 160) + ")" : "");
+
+    sendBugReport({
+      description,
+      screen,
+      appVersion: APP_VERSION,
+      kind,
+      severity: kind === "javascript" ? "high" : "medium",
+      source: "automatic",
+      replyEmail: null
+    });
+  }catch(e){ /* reporting a bug must never throw */ }
+}
+
+window.addEventListener("error", function(event){
+  // Ignore cross-origin "Script error." noise — it carries no usable detail and
+  // would report a CDN's problem as ours.
+  const msg = event && event.message;
+  if(!msg || /^Script error/i.test(msg)) return;
+  const kind = /fetch|network|Failed to load/i.test(msg) ? "network" : "javascript";
+  reportBugAutomatically(kind, msg);
+});
+
+window.addEventListener("unhandledrejection", function(event){
+  const reason = event && event.reason;
+  const msg = reason && (reason.message || reason);
+  if(!msg) return;
+  reportBugAutomatically("javascript", String(msg));
+});
+
+/* ================================================================== */
+/* CONNECTION STATE                                                    */
+/*                                                                     */
+/* Distinguishes four states the user can actually tell apart:         */
+/*   online      — nothing shown                                       */
+/*   slow        — requests are taking a long time, show a progress bar */
+/*   offline     — no connection, say what still works                 */
+/*   back online — confirm recovery, then get out of the way            */
+/*                                                                     */
+/* The old behaviour was `navigator.onLine` checks scattered through the */
+/* file, each producing its own message or none at all.                */
+/* ================================================================== */
+const ConnectionState = {
+  status: "online",        // online | slow | offline | back
+  slowTimer: null,
+  backTimer: null,
+  pendingRequests: 0,
+
+  set(status, title, detail, icon){
+    const banner = document.getElementById("connectionBanner");
+    const bt = document.getElementById("connectionTitle");
+    const bd = document.getElementById("connectionDetail");
+    const bi = document.getElementById("connectionIcon");
+    const action = document.getElementById("connectionAction");
+    if(!banner || !bt || !bd) return;
+
+    const changed = this.status !== status;
+    this.status = status;
+
+    if(status === "online"){
+      banner.hidden = true;
+      banner.classList.remove("is-offline", "is-slow", "is-back");
+      return;
+    }
+
+    banner.hidden = false;
+    banner.classList.remove("is-offline", "is-slow", "is-back");
+    if(status === "offline") banner.classList.add("is-offline");
+    if(status === "slow") banner.classList.add("is-slow");
+    if(status === "back") banner.classList.add("is-back");
+
+    if(bi) bi.textContent = icon || (status === "offline" ? "📡" : status === "slow" ? "🐢" : "✅");
+    bt.textContent = title;
+    bd.textContent = detail;
+    // Retry is meaningless in the "we are back" state.
+    if(action) action.style.display = status === "back" ? "none" : "";
+
+    // Only announce a change, never the same state twice — otherwise every failed
+    // fetch re-announces "you are offline" to a screen-reader user.
+    if(changed){
+      if(status === "offline") announceToScreenReader("You are offline. " + detail);
+      else if(status === "slow") announceToScreenReader("Your connection is slow. Still working…");
+      else if(status === "back") announceToScreenReader("Back online.");
+    }
+  },
+
+  // Called instead of guessing from navigator.onLine: the browser's flag can say
+  // "online" on a captive-portal wifi that answers nothing.
+  wentOffline(){
+    clearTimeout(this.slowTimer);
+    this.set("offline", "You're offline",
+      "Everything already on this device still works. New reports will be saved and sent when you reconnect.");
+  },
+
+  cameBack(){
+    clearTimeout(this.slowTimer);
+    this.set("back", "Back online", "Syncing your saved changes.", "✅");
+    clearTimeout(this.backTimer);
+    this.backTimer = setTimeout(() => {
+      // Only clear the banner if nothing has gone wrong again in the meantime.
+      if(this.status === "back") this.set("online");
+    }, 3200);
+  },
+
+  // A request has taken longer than SLOW_MS: say so rather than showing a frozen
+  // screen. Cleared as soon as the request settles.
+  markSlow(){
+    if(this.status === "offline") return;
+    clearTimeout(this.slowTimer);
+    this.slowTimer = setTimeout(() => {
+      if(this.status !== "offline"){
+        this.set("slow", "Slow connection",
+          "Still working — this is taking longer than usual.", "🐢");
+      }
+    }, 6000);
+  },
+
+  clearSlow(){
+    clearTimeout(this.slowTimer);
+    if(this.status === "slow") this.set("online");
+  }
+};
+
+function retryConnection(){
+  if(navigator.onLine === false){
+    showErrorToast("Still no connection — check your mobile data or wifi.");
+    return;
+  }
+  ConnectionState.set("slow", "Checking connection…", "Trying the SafeSteps server.", "⏳");
+  // A cheap same-origin request. Deliberately not cached by the service worker,
+  // so this reflects the real network rather than the offline copy.
+  fetch("/manifest.json?ping=" + Date.now(), { cache: "no-store" })
+    .then(() => { ConnectionState.cameBack(); showSuccessToast("Connected ✓"); })
+    .catch(() => { ConnectionState.wentOffline(); });
+}
+
+// security.js is loaded *before* this script and reports network trouble through
+// this object, so it must be reachable from window.
+window.ConnectionState = ConnectionState;
+
+window.addEventListener("offline", () => ConnectionState.wentOffline());
+window.addEventListener("online", () => ConnectionState.cameBack());
+// If the page is *loaded* offline, the events never fire — check straight away.
+if(navigator.onLine === false){
+  try{ ConnectionState.wentOffline(); }catch(e){}
+}
+
 // Keep the footer copyright year correct. The markup ships "2026" so the year is
 // right with JavaScript disabled; this corrects it from Jan 1 of any later year
 // instead of leaving a stale year on the page forever.
@@ -4767,27 +5516,35 @@ async function loadLessonsData(){
 function renderLessonsLoadError(){
   const list = document.getElementById("lessonList");
   if(!list) return;
-  if(list.querySelector(".load-error")) return;   // already showing
+  if(list.querySelector(".state-error")) return;   // already showing
+  // A sibling block, not a replacement: the built-in lessons below are still
+  // usable offline, so hiding them would be worse than the error.
   const box = document.createElement("div");
-  box.className = "load-error";
-  box.setAttribute("role", "alert");
-  box.innerHTML = `
-    <b style="display:block; font-size:13.5px; margin-bottom:6px;">⚠️ Couldn't load the lesson library</b>
-    <span style="display:block; font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-bottom:12px;">
-      You're probably offline and these lessons haven't been saved on this device yet.
-      Connect once and they'll be available offline from then on.
-    </span>
-    <button class="fa-more-btn" type="button" onclick="retryLessons()">↻ Try again</button>`;
-  list.prepend(box);
+  renderErrorState(box, {
+    title: "Couldn't load the lesson library",
+    body: navigator.onLine === false
+      ? "You're offline and these lessons haven't been saved on this device yet. Connect once and they'll be available offline from then on."
+      : "The lesson file didn't download. Check your connection and try again.",
+    retryLabel: "Try again",
+    retry: "retryLessons()"
+  });
+  list.prepend(box.firstChild || box);
 }
 
 async function retryLessons(){
   const list = document.getElementById("lessonList");
-  const box = list && list.querySelector(".load-error");
+  const box = list && list.querySelector(".state-error");
   if(box) box.remove();
   lessonsDataMeta.failed = false;
+  if(list) renderSkeleton(list, { rows: 3, shape: "card", label: "Loading lessons" });
+  const startedAt = Date.now();
   await loadLessonsData();
-  if(!lessonsDataMeta.failed) showSuccessToast("Lessons loaded ✓");
+  if(!lessonsDataMeta.failed){
+    // Minimum visible dwell: a skeleton that flashes for 80ms reads as a glitch.
+    const elapsed = Date.now() - startedAt;
+    if(elapsed < 450) await new Promise(r => setTimeout(r, 450 - elapsed));
+    showSuccessToast("Lessons loaded ✓");
+  }
 }
 function renderLessons(){
   const list = document.getElementById("lessonList");
@@ -6362,6 +7119,35 @@ function useMyLocation(){
 }
 async function addReport(){
   const note = document.getElementById("hazardNote").value.trim();
+
+  // "Dangerous Crossing" is pre-selected in the grid, so a user who taps Submit
+  // without choosing still files a report — but under a category they never
+  // picked. Ask them to confirm the type instead of guessing on their behalf.
+  // (The check is defensive: the default is 0, but a stale/corrupt selection must
+  // not produce an `undefined` report type.)
+  if(selectedHazard === null || selectedHazard === undefined || !hazardTypes[selectedHazard]){
+    const grid = document.getElementById("hazardGrid");
+    if(grid){
+      grid.classList.add("field-invalid");
+      let msg = document.getElementById("hazardGrid-error");
+      if(!msg){
+        msg = document.createElement("div");
+        msg.id = "hazardGrid-error";
+        msg.className = "field-error";
+        msg.setAttribute("role", "alert");
+        grid.parentNode.insertBefore(msg, grid.nextSibling);
+      }
+      msg.textContent = "Choose what kind of hazard this is";
+      try{ grid.scrollIntoView({ block: "center", behavior: "smooth" }); }catch(e){}
+    }
+    showErrorToast("Choose a hazard type first — then Submit.");
+    return;
+  }
+  const gridEl = document.getElementById("hazardGrid");
+  if(gridEl) gridEl.classList.remove("field-invalid");
+  const gridErr = document.getElementById("hazardGrid-error");
+  if(gridErr) gridErr.remove();
+
   const report = {
     type:hazardTypes[selectedHazard].label, note, time:new Date().toLocaleString(), ts:new Date().toISOString(),
     lat: capturedLocation ? capturedLocation.lat : null, lng: capturedLocation ? capturedLocation.lng : null,
@@ -6384,7 +7170,15 @@ async function addReport(){
 
   const message = `New hazard report from SafeSteps:\n\nType: ${report.type}\nNote: ${report.note || "(none)"}\nLocation: ${report.lat ? `${report.lat}, ${report.lng} (https://maps.google.com/?q=${report.lat},${report.lng})` : "Not shared"}\nPhoto attached: ${report.photo ? "Yes" : "No"}\nTime: ${report.time}\nReporter (Google account, for follow-up only — not shown publicly): ${state.cloudEmail || "Not signed in"}`;
   await sendAutoEmail("SafeSteps Hazard Report", message);
-  showToast("Report submitted — thank you for helping keep the road safe!");
+  showSuccessToast("Report submitted ✓");
+  announceToScreenReader("Report submitted. You can see it on the hazard map, or add another report.");
+  // Make the existing next-step banner impossible to miss.
+  const nextStep = document.getElementById("reportMapSuggestion");
+  if(nextStep){
+    nextStep.style.display = "flex";
+    nextStep.classList.add("next-step-highlight");
+    setTimeout(() => nextStep.classList.remove("next-step-highlight"), 1800);
+  }
 }
 // NTSA's report-incident page has no public API for apps to submit to
 // directly, so this can't auto-file the report. Instead it hands the photo
@@ -6644,7 +7438,15 @@ function renderPostsFeed(){
   const feed = document.getElementById("postsFeed");
   if(!feed) return;
   if(!state.posts.length){
-    feed.innerHTML = `<div style="text-align:center; color:var(--text-dim); font-size:12px; padding:16px;">No posts yet — be the first to flag unsafe driving with a photo or video.</div>`;
+    // Was a single grey line. An empty screen should say what the screen is for
+    // and give the action that fills it.
+    renderEmptyState(feed, {
+      icon: "📸",
+      title: "No reports near you yet",
+      body: "Community reports show road hazards and unsafe driving that other SafeSteps users have flagged. Be the first.",
+      actionLabel: "Report a hazard",
+      action: "showPage('report')"
+    });
     return;
   }
   feed.innerHTML = state.posts.map(post=>{
@@ -6960,14 +7762,42 @@ function shareLiveLocation(){
 
 /* ---------------- SETTINGS SAVE ---------------- */
 function saveTrustedContact(){
+  const nameEl = document.getElementById("tcName");
+  const phoneEl = document.getElementById("tcPhone");
+  const emailEl = document.getElementById("tcEmail");
+
+  const phoneProblem = validateTrustedContactPhone(phoneEl.value);
+  const emailProblem = validateEmailOptional(emailEl.value);
+  const nameProblem = !nameEl.value.trim() ? "Enter a name so you know who this is" : null;
+
+  // Report every bad field at once, not one per attempt.
+  [ [nameEl, nameProblem], [phoneEl, phoneProblem], [emailEl, emailProblem] ].forEach(([el, problem]) => {
+    if(problem) setFieldError(el, problem); else clearFieldError(el);
+  });
+  const firstBad = [nameEl, phoneEl, emailEl].find(el => el.classList.contains("field-invalid"));
+  if(firstBad){
+    try{ firstBad.focus(); }catch(e){}
+    announceToScreenReader("Check the highlighted details and try again.");
+    return;
+  }
+
   state.trustedContact = {
-    name: document.getElementById("tcName").value.trim(),
-    phone: document.getElementById("tcPhone").value.trim(),
-    email: document.getElementById("tcEmail").value.trim()
+    name: nameEl.value.trim(),
+    phone: normalizeKePhone(phoneEl.value),
+    email: emailEl.value.trim()
   };
   persist();
-  showToast("Trusted contact saved");
+  showSuccessToast("Trusted contact saved ✓");
+  // Tell the user what happens next, so the success is not the end of the story.
+  announceToScreenReader("Trusted contact saved. They will be offered in the SOS screen when you need them.");
 }
+
+// Wire the watchers once the settings form exists.
+document.addEventListener("DOMContentLoaded", function(){
+  watchField(document.getElementById("tcName"));
+  watchField(document.getElementById("tcPhone"), validateTrustedContactPhone);
+  watchField(document.getElementById("tcEmail"), validateEmailOptional);
+});
 function saveMedical(){
   state.medical = {
     name: document.getElementById("medName").value.trim(),

@@ -1,0 +1,11 @@
+{
+  "shellBytes": 866598,
+  "shellBrotli": 201304,
+  "shellGzip": 226703,
+  "imageBytes": 239467,
+  "largestImage": 123975,
+  "blockingCss": 0,
+  "cssImports": 0,
+  "syncLocalScripts": 1,
+  "cdnHosts": 0
+}

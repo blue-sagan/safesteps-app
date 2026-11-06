@@ -14,6 +14,7 @@ human, and — importantly — why there is no payment integration to write abou
 | Short in-app disclaimer | `#legalDisclaimerModal` in `index.html` | Pre-existing, extended with privacy + emergency points and links to the full pages |
 | Account deletion (right to erasure) | Account screen → *Delete My Account & Server Data* | **Added** — see §3 |
 | Data-retention statement | Privacy Policy §5 | Matches the actual purge function |
+| Bug-report disclosure | Privacy Policy §3b | **Added** with bug reporting — a report contains words the user typed, so the "nothing you typed" guarantee of §3a had to stop applying to it |
 
 `legal.html` is a standalone page: readable with JavaScript disabled, no app
 shell, no service worker. That matters because these documents are often opened
@@ -29,13 +30,14 @@ points that are easy to get wrong, and how each was verified:
 | --- | --- |
 | "Most data stays on the device" | `localStorage` key `safesteps_state_v3`; the only other keys are `safesteps_profile`, `safesteps_pending_email`, `safesteps_fm_plan`, `ntsaLiveCache` |
 | Medical note and trusted contact are never uploaded | Both live in the local `state` object; no API call sends them |
-| Per-user row access is enforced by the database | 18 RLS policies across the 8 tables, all scoped to `auth.uid()` |
+| Per-user row access is enforced by the database | 18 RLS policies across the original 8 tables, all scoped to `auth.uid()`. `app_events` and `bug_reports` are server-written only; `bug_reports` additionally lets a signed-in user read and delete **their own** rows |
 | Security events deleted after 365 days, mail records after 90 | `private.purge_expired_data()` in `20261104120000_security_schema.sql` |
 | Passwords are hashed and never readable by us | Supabase Auth; the server never logs or returns a password |
 | Passwords are 6–8 characters | `password_min_length 6` plus the app's own policy; stated in both the policy and the terms so users are not surprised |
 | Weather sends coordinates to Open-Meteo | `api.open-meteo.com` calls in `index.html` |
 | Integrity reports are not retained | They are composed on-device and sent to a chosen agency address; no server copy |
-| No advertising, no analytics, no tracking pixels | No such SDK is loaded; the only third-party scripts are jspdf, tesseract, leaflet, qrcode and jsQR |
+| No advertising, no third-party analytics, no tracking pixels | No such SDK is loaded; the only third-party scripts are jspdf, tesseract, leaflet, qrcode and jsQR. Analytics are first-party counters in `public.app_events` (§3a) |
+| Telemetry switch also stops automatic bug reports | `reportBugAutomatically()` checks `SS.analytics.allowed()` before sending; verified by running the shipped function with the opt-out key set — 1 report sent with telemetry on, 0 with it off, while a report the user sends by hand still goes |
 | SOS is not a monitored service | The button dials 112/999 via the phone; nothing is sent to the server |
 
 If a feature changes, the corresponding sentence in `legal.html` must change with

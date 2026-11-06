@@ -92,6 +92,13 @@ jobs:
         # optimised" is only true if it is checked on every page.
         run: node scripts/check-mobile.js
 
+      - name: Performance budget (bytes on the wire, blocking resources)
+        # Measures what a phone actually downloads: brotli bytes for the shell,
+        # render-blocking stylesheets, CSS @import chains, image weights, and that
+        # the server still compresses. Fails on a regression against
+        # scripts/performance-budget.json.
+        run: node scripts/check-performance.js
+
       - name: Release safety (cache busting, pre-cached assets)
         # An app-shell change without a CACHE_VERSION bump means every existing
         # user keeps the old shell, and later rollbacks are silently ignored.
