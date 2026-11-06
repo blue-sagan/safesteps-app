@@ -43,6 +43,10 @@ docs/                      the operational runbooks (see below)
 | `docs/FREE-PLAN-LIMITS.md` | a quota, a pause, or the app "went read-only" |
 | `docs/MONITORING.md` | setting up alerts; what is measured and what is not |
 | `docs/LEGAL.md` | the privacy/terms pages, erasure, and why there is no payment integration |
+| `docs/USER-STATES.md` | the ten user states, the permission-error mapping, and the SOS fallback |
+| `docs/BUG-REPORTING.md` | the bug-report contract and the `bug_reports` schema |
+| `docs/BUG-REPORTING-AT-SCALE.md` | reporting at scale, and why AI auto-fix stops at needing a provider |
+| `docs/PERFORMANCE.md` | the measured numbers, what was done, and what was deliberately not |
 
 ## Running locally
 
