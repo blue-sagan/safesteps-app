@@ -88,25 +88,32 @@ say "wrote $(basename "$OUT_PATH") ($(du -h "$OUT_PATH" | cut -f1))"
 # Verifying the archive by listing it is the difference between "I made a file"
 # and "the file is what I say it is".
 COUNT_TRACKED="$(printf '%s\n' "$TRACKED" | wc -l)"
-COUNT_ZIP="$(unzip -Z1 "$OUT_PATH" | grep -v '/$' | grep -vc '^safesteps-app/$' || true)"
+COUNT_ZIP="$(printf '%s\n' "$(unzip -Z1 "$OUT_PATH")" | grep -v '/$' | wc -l)"
 [ "$COUNT_ZIP" -eq "$COUNT_TRACKED" ] \
   || fail "archive holds $COUNT_ZIP files but $COUNT_TRACKED are tracked"
+
+# Read the listing once. Piping `unzip` into `grep -q` looks right and is not:
+# grep exits at the first match, unzip takes SIGPIPE, and `set -o pipefail`
+# reports 141 as a failure even though the file was found.
+LISTING="$(unzip -Z1 "$OUT_PATH")"
+case_insensitive_grep() { printf '%s\n' "$LISTING" | grep -Fqx "$1"; }
 
 for must in \
   "safesteps-app/safesteps/index.html" \
   "safesteps-app/safesteps/sw.js" \
   "safesteps-app/safesteps/server/server.js" \
   "safesteps-app/README.md" \
+  "safesteps-app/RELEASE-NOTES.md" \
   "safesteps-app/docs/PERFORMANCE.md" \
   "safesteps-app/docs/USER-STATES.md" \
   "safesteps-app/scripts/check-states.js"
 do
-  unzip -Z1 "$OUT_PATH" | grep -qx "$must" || fail "archive is missing $must"
+  case_insensitive_grep "$must" || fail "archive is missing $must"
 done
 say "archive verified: $COUNT_ZIP files, entry points present"
 
 # No .env or key may have slipped in via the archive itself.
-if unzip -Z1 "$OUT_PATH" | grep -qE '(^|/)\.env$|\.(pem|key|p12)$'; then
+if printf '%s\n' "$LISTING" | grep -E '(^|/)\.env$|\.(pem|key|p12)$' >/dev/null; then
   rm -f "$OUT_PATH"
   fail "archive contained a credential file — deleted"
 fi
