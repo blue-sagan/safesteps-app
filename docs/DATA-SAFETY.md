@@ -555,6 +555,68 @@ records in the recycle bin — a real right-to-erasure defect. Fixed live, and t
 checker was sharpened to scope its match to that function (an unscoped match
 proved nothing). The erasure path was then verified end to end.
 
+### Two further defects found while closing this out (found, fixed, proved)
+
+Neither was in the brief. Both were found by asking "does this claim survive a
+restart?", and both are recorded here because the pattern matters more than the
+individual bugs.
+
+**A. Retention had silently shrunk, so the privacy policy was false.**
+
+Every migration that touched `private.purge_expired_data()` redefined the whole
+function. Each rewrite meant to *add* a table, and the last one was written from a
+copy of an earlier body:
+
+| migration | purged |
+| --- | --- |
+| security_schema | security_events |
+| analytics | + app_events |
+| bug_reports | + bug_reports |
+| **deletion_safeguards (was live)** | security_events, **+ trash**, **− app_events** |
+
+`legal.html` §5 states analytics data is deleted after 180 days. It was not.
+Fixed in `20261107180000_retention_superset_and_bug_reports.sql`, which restates
+the complete set in one place. Verified live: the function now contains 7 delete
+statements including `app_events`, `bug_reports` and `trash`.
+
+**B. Bug reports were acknowledged as saved and then discarded.**
+
+`bug_reports` had never been created, so the endpoint fell back to SQLite. With
+`SQLITE_PATH` unset SQLite uses `:memory:`, and an insert into RAM *succeeds*.
+The server replied `201 recorded`, the client said "your report was sent", and the
+row was gone at the next restart or deploy. The client already received
+`degraded: true` and threw it away.
+
+Fixed at all three layers: the server now asks `db.isMemoryBacked()` and returns
+`503` with "we could not save your report" when the store is volatile; the client
+stops discarding `degraded`; and the table now exists, so the fallback should not
+be reached in production at all.
+
+The existing test asserted the **wrong** behaviour — `assert.equal(response.status,
+201)` for a report going to `:memory:` — so the bug was encoded as a requirement.
+It is now two tests: volatile ⇒ 503, durable ⇒ 201 with `degraded: true`.
+
+### The gate was extended to cover both (rule 5)
+
+`scripts/check-data-safety.js` grew from 56 to 68 checks. Rule 5 parses every
+migration's retention definition and asserts the final one is a superset of all
+earlier ones, that the tables `legal.html` promises are present, and that the
+bug-report path still asks whether its store is durable.
+
+Fault-injected, all three caught:
+
+| Injected fault | Result |
+| --- | --- |
+| drop `app_events` from the final retention definition | caught (2 checks) |
+| accept a report written to a volatile store | caught |
+| stop calling `db.isMemoryBacked()` | caught |
+| `isMemoryBacked()` always returns false | caught (7 helper tests) |
+
+The rule's first draft **passed vacuously**: its regex captured up to the first
+`$$` (the `as $$` opener), so every table set was empty and "no table was dropped"
+was trivially true. A check was added requiring each parsed definition to yield at
+least four tables, so a broken capture fails loudly instead of passing silently.
+
 ### Not verified
 
 - **No browser.** Every UI claim is about DOM state and declared CSS, never

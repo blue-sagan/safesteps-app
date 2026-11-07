@@ -33,7 +33,8 @@ did not write, IP address, device fingerprint.
 
 ## Storage
 
-`public.bug_reports` (migration `20261106120000_bug_reports.sql`).
+`public.bug_reports` (migration `20261107180000_retention_superset_and_bug_reports.sql`,
+which supersedes the written-but-unapplied `20261106120000_bug_reports.sql`).
 
 This table is deliberately **separate from `app_events`**. `app_events` is an
 aggregate analytics table whose whole guarantee is that it contains no personal
@@ -118,8 +119,19 @@ update public.bug_reports
 
 - The endpoint has its own rate-limit bucket (`bugreport`, 20/hour) so reporting
   bugs cannot consume the password-reset budget.
-- If the `bug_reports` table does not exist yet — deployed code, unapplied
-  migration — the report is stored in the local fallback and the endpoint still
-  returns `201` with `degraded: true`. It never silently drops a report.
+- If the `bug_reports` table does not exist — deployed code, unapplied migration
+  — the endpoint falls back to the local SQLite store, and **what it replies
+  depends on whether that store is durable**:
+  - `SQLITE_PATH` points at a real file: `201` with `degraded: true`, and the
+    client tells the reporter it was saved temporarily.
+  - `SQLITE_PATH` unset (so SQLite uses `:memory:`) or the store is unavailable:
+    `503`, and the reporter is told plainly that it was **not** saved.
+  ```
+  There is no third case where the report goes nowhere and the reply says
+  "recorded". That was a real defect until 2026-11-07: an unset `SQLITE_PATH`
+  plus an unapplied migration meant every production report was written to RAM
+  and acknowledged as saved, then discarded at the next restart. The reply is now
+  driven by `db.isMemoryBacked()`, and `scripts/check-data-safety.js` rule 5
+  fails if that question stops being asked.
 - If the database is unreachable, the endpoint returns `503` so the client knows
   to keep the user's text and offer a retry.

@@ -439,6 +439,95 @@ async function main() {
     for (const f of failed) console.log(`  ✗ rule ${f.rule}: ${f.label}${f.detail ? ' — ' + f.detail : ''}`);
     process.exit(1);
   }
+
+  /* --------------------------- 5. retention has not silently shrunk again */
+  heading('5. Retention covers every table the privacy policy promises');
+
+  // This rule exists because the retention function DID silently shrink.
+  //
+  // Every migration that touched private.purge_expired_data() redefined the
+  // whole function with `create or replace`. Each rewrite was meant to add a
+  // table, and the last one was written from a copy of an earlier version, so it
+  // dropped public.app_events — which legal.html §5 promises is deleted after
+  // 180 days. Nothing failed; analytics simply stopped being purged.
+  //
+  // A whole-function redefinition cannot express "add one line", so the fix is
+  // this check: take the LAST definition in migration filename order, and assert
+  // it is a superset of every table any earlier definition purged.
+  const migrationsDir = path.join(ROOT, 'safesteps/supabase/migrations');
+  const PURGE_RE = /create or replace function private\.purge_expired_data\(\)[\s\S]*?as \$\$([\s\S]*?)\$\$/g;
+  const DELETE_RE = /delete\s+from\s+([a-z_]+\.[a-z_]+)/gi;
+
+  const defs = [];
+  for (const file of fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort()) {
+    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    let m;
+    PURGE_RE.lastIndex = 0;
+    while ((m = PURGE_RE.exec(sql)) !== null) {
+      const body = m[1];
+      const tables = new Set();
+      let d;
+      DELETE_RE.lastIndex = 0;
+      while ((d = DELETE_RE.exec(body)) !== null) tables.add(d[1].toLowerCase());
+      defs.push({ file, tables });
+    }
+  }
+
+  check(5, 'the retention function is defined at least once', defs.length > 0,
+    `found ${defs.length} definition(s)`);
+  // Guard against the vacuous pass: if the body capture silently stops working,
+  // every set is empty, "nothing was dropped" is trivially true, and the rule
+  // looks healthy while checking nothing. Require that a definition was actually
+  // parsed into delete statements.
+  check(5, 'retention definitions were actually parsed into table names',
+    defs.length > 0 && defs.every((d) => d.tables.size >= 4),
+    defs.map((d) => `${d.file}:${d.tables.size}`).join(' '));
+
+  if (defs.length > 0) {
+    const finalDef = defs[defs.length - 1];
+    const finalTables = finalDef.tables;
+
+    // The tables the privacy policy names, plus the bin. These must be present in
+    // the final definition regardless of what any earlier one did.
+    for (const required of [
+      'public.security_events',
+      'public.app_events',
+      'public.bug_reports',
+      'public.trash',
+      'private.verification_challenges',
+      'private.rate_limits',
+      'private.outbound_mail',
+    ]) {
+      check(5, `retention still covers ${required}`, finalTables.has(required),
+        `final definition is ${finalDef.file}`);
+    }
+
+    // And nothing an earlier definition purged may have been dropped on the way.
+    const dropped = [];
+    for (const def of defs) {
+      for (const t of def.tables) {
+        if (!finalTables.has(t)) dropped.push(`${t} (purged by ${def.file})`);
+      }
+    }
+    check(5, 'no table was dropped from retention by a later migration', dropped.length === 0,
+      dropped.join(', '));
+
+    // The bug-report fallback must not claim success on a volatile store: this is
+    // the second half of the same honesty problem, and it was live.
+    const apiSrc2 = fs.readFileSync(path.join(ROOT, 'safesteps/server/lib/api.js'), 'utf8');
+    check(5, 'the bug-report fallback checks whether its store is durable',
+      /db\.isMemoryBacked\(\)/.test(apiSrc2),
+      'a write to :memory: succeeds like a durable one, so accepting it loses the report silently');
+    check(5, 'a volatile store is refused rather than acknowledged',
+      /!stored\s*\|\|\s*db\.isMemoryBacked\(\)/.test(apiSrc2));
+  }
+
+  // Report the summary and exit.
+  const failures = results.filter((r) => !r.ok);
+  if (failures.length) {
+    console.log(`\nFAILED: ${failures.length} of ${results.length} checks`);
+    process.exit(1);
+  }
   console.log(`All ${results.length} data-safety checks passed.`);
   console.log('Not covered here, because it is provisioning rather than code:');
   console.log('  separate projects per environment, PITR, storage versioning, migration');

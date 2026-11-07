@@ -867,11 +867,13 @@ async function handleBugReport(req, res) {
  * and the caller is told the truth about where it went.
  */
 function recordBugReportLocally(record, res, warning) {
+  let stored = false;
   try {
     db.query(
       'INSERT INTO bug_reports (user_id, reply_email, description, screen, app_version, kind, severity, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [record.user_id, record.reply_email, record.description, record.screen, record.app_version, record.kind, record.severity, record.source, 'new', Date.now()]
     );
+    stored = true;
   } catch (err) {
     // The local store may be unavailable (Node <22). Still do not lose the text.
     try {
@@ -882,6 +884,27 @@ function recordBugReportLocally(record, res, warning) {
     } catch (e) { /* nothing more we can do */ }
   }
   if (warning) console.warn('[bug-report]', warning);
+
+  // Whether the fallback is a real store or a hole depends entirely on
+  // SQLITE_PATH, and the difference is invisible from here: db.query() happily
+  // succeeds against SQLite's default ':memory:'. A report written there is
+  // gone at the next restart or deploy. Telling the reporter "recorded" in that
+  // case is a false statement about their data, which is the one thing a
+  // defect-reporting path must never produce — they would stop reporting, or
+  // assume we have what we no longer do.
+  //
+  // So the reply depends on where it actually landed:
+  //   durable SQLite file -> 201, they can retry nothing, it is on disk
+  //   memory / no store   -> 503, with a message saying the text was not saved
+  if (!stored || db.isMemoryBacked()) {
+    console.error('[bug-report] report NOT durably stored: local store is not persistent');
+    return sendJson(res, 503, {
+      error: 'storage_unavailable',
+      message: 'We could not save your report — please try again later. Your text is still in the box.',
+      retryable: true,
+      degraded: true,
+    });
+  }
   sendJson(res, 201, { status: 'recorded', reference: null, degraded: true });
 }
 

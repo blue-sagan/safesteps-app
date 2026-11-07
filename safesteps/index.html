@@ -5473,7 +5473,14 @@ async function sendBugReport(payload){
       return { ok: false, status: res.status, message };
     }
     const body = await res.json().catch(() => ({}));
-    return { ok: true, reference: body && body.reference };
+    // The server says "degraded" when it stored the report somewhere that will
+    // not survive a restart. Pass it through instead of discarding it: the
+    // caller must not tell the person their report was sent when it was not.
+    return {
+      ok: true,
+      reference: body && body.reference,
+      degraded: !!(body && body.degraded)
+    };
   }catch(err){
     return { ok: false, status: 0, message: "You appear to be offline." };
   }
@@ -5511,7 +5518,15 @@ async function submitBugReport(){
 
   if(btn) btn.disabled = false;
 
-  if(outcome.ok){
+  if(outcome.ok && outcome.degraded){
+    // Stored, but not durably. Say so plainly and keep the text in the box so it
+    // can still be sent by another route — the alternative is a person believing
+    // a report exists that does not.
+    if(result) result.textContent = "Saved temporarily on the server. Please also keep a copy of this text — it may not be kept.";
+    showErrorToast("Report received, but not permanently saved. Please keep a copy.");
+    if(window.SS) try{ window.SS.saveDraft("bug-report", description); }catch(e){}
+    announceToScreenReader("Report saved temporarily. Please keep a copy of your text.");
+  }else if(outcome.ok){
     box.value = "";
     if(consent) consent.checked = false;
     showSuccessToast("Thanks — your report was sent ✓");

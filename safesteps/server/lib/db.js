@@ -242,6 +242,29 @@ function decryptAtRest(payload, keyBase64) {
   ]).toString('utf8');
 }
 
+/**
+ * Is the local store volatile?
+ *
+ * SQLite defaults to ':memory:' when SQLITE_PATH is unset, and a write to an
+ * in-memory database succeeds exactly like a durable one. Nothing downstream can
+ * tell the difference, so a report can be accepted, acknowledged, and then
+ * discarded on restart or deploy.
+ *
+ * This exists so callers can distinguish "stored" from "stored somewhere that
+ * will survive". A caller that writes something it must not lose should ask.
+ */
+function isMemoryBacked() {
+  try {
+    const file = process.env.SQLITE_PATH || ':memory:';
+    // ':memory:' and the shared-cache URI form both live only in RAM.
+    if (file === ':memory:' || file === '') return true;
+    if (/^file::memory:/.test(file) || /mode=memory/.test(file)) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 function isAvailable() {
   try {
     getDb();
@@ -254,6 +277,7 @@ function isAvailable() {
 module.exports = {
   LocalStoreUnavailable,
   isAvailable,
+  isMemoryBacked,
   query,
   getDb,
   rest,

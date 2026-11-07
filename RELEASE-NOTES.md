@@ -112,8 +112,11 @@ the most expensive kind of bug:
 
 These need private facts or a human decision, so they are not done in the repo:
 
-1. **Apply the migrations**, including `20261106120000_bug_reports.sql`, which is
-   written but not yet applied to the live project.
+1. **Apply the migrations.** The live project has everything except the two
+   that follow; `20261107180000_retention_superset_and_bug_reports.sql` is
+   applied already and **supersedes** `20261106120000_bug_reports.sql` — do not
+   apply that one afterwards, it would redefine the retention function with the
+   pre-fix body and drop `app_events` and `trash` from it.
 2. **Set the server-side secrets**: `SUPABASE_SERVICE_ROLE_KEY`,
    `VERIFICATION_PEPPER`, `SERVER_DATA_KEY`, and the mail transport credentials.
    They belong in the host's environment, never in this archive.

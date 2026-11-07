@@ -243,21 +243,57 @@ test('the insert authenticates with the service-role key, not the publishable on
     'the write must use the service-role key or RLS will reject it');
 });
 
-test('a missing migration degrades instead of losing the report', async () => {
-  // The most likely launch-day failure: deployed code, unapplied migration.
-  // The report must still be accepted and the operator must get an actionable
-  // message, not a 502 that makes it look like the user did something wrong.
+test('a missing migration must NOT claim the report was saved when it only reached RAM', async () => {
+  // This test previously asserted 201 here, and that assertion was the bug.
+  //
+  // With SQLITE_PATH unset, the fallback writes to ':memory:' and the insert
+  // succeeds. The old code took that success as "stored", replied 201
+  // "recorded", and the row vanished at the next restart or deploy. The user was
+  // told their report had been sent and stopped worrying about it.
+  //
+  // A defect-reporting path must not produce a false statement about the data it
+  // holds, so the correct behaviour with a volatile fallback is 503 and text
+  // telling the reporter it was not saved.
+  delete process.env.SQLITE_PATH;
   insertMode = 'missingTable';
   const response = await postReport({
     description: 'The first aid steps screen is blank on my phone.',
     screen: 'firstaid',
     severity: 'high',
   });
-  assert.equal(response.status, 201, 'the report must not be rejected because of our own missing table');
+  assert.equal(response.status, 503, 'a volatile fallback must not answer 201');
   const body = await response.json();
-  assert.equal(body.status, 'recorded');
-  assert.equal(body.degraded, true, 'the caller should be told it was stored in the fallback');
-  assert.equal(body.reference, null);
+  assert.equal(body.error, 'storage_unavailable');
+  assert.equal(body.retryable, true);
+  assert.match(body.message, /could not save/i, 'the message must say it was not saved');
+  assert.ok(!/recorded/.test(JSON.stringify(body)), 'nothing may claim the report was recorded');
+});
+
+test('a missing migration degrades honestly when SQLITE_PATH is durable', async () => {
+  // The other half of the same failure: if the operator HAS configured a real
+  // SQLite file, the fallback genuinely stores the report, so 201 with
+  // degraded:true is the truth and the client can say "saved temporarily".
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ss-bug-'));
+  process.env.SQLITE_PATH = path.join(dir, 'reports.db');
+  try {
+    insertMode = 'missingTable';
+    const response = await postReport({
+      description: 'The quiz score does not update after answering.',
+      screen: 'quiz',
+      severity: 'medium',
+    });
+    assert.equal(response.status, 201, 'a durable fallback may accept the report');
+    const body = await response.json();
+    assert.equal(body.status, 'recorded');
+    assert.equal(body.degraded, true, 'the caller must still be told it came from the fallback');
+    assert.equal(body.reference, null);
+  } finally {
+    delete process.env.SQLITE_PATH;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('a storage failure reports a failure the client can show', async () => {
