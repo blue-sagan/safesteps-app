@@ -20,6 +20,28 @@ confirm the file count and entry points.
 | understand the bug-report pipeline | `docs/BUG-REPORTING-AT-SCALE.md` |
 | handle a bad release | `docs/ROLLBACK.md` |
 | take or restore a backup | `docs/BACKUP-AND-RECOVERY.md` |
+| know which environment you are in, or what protects a delete | `docs/DATA-SAFETY.md` |
+
+## Deletion safeguards in this build
+
+A delete is now a move to a 30-day recycle bin, not an erasure:
+
+- **10 records per request, maximum** — enforced in the browser, in the HTTP
+  layer, and in Postgres. The last one is the real limit; the publishable key is
+  public by design, so an application-layer cap is not a cap.
+- **A typed phrase** the server generates is required for 3 or more records, and
+  for emptying the bin at all — that has no undo.
+- **Explicit approval** for 5 or more, when `DELETION_APPROVAL_TOKEN` is set. If
+  it is not set, the app says approval is *not configured* rather than pretending.
+- **Every deletion is logged** with who, what, how many and when. The log
+  survives the account being deleted.
+- **A production banner** appears on production only, fed by the server's own
+  answer. Staging gets a different one; development gets none.
+
+`docs/DATA-SAFETY.md` lists what is **not** set up — separate databases, PITR,
+storage versioning, a backup schedule, an off-account immutable backup — with the
+exact steps and the cost of leaving each undone. Read that section before
+launching.
 
 ## Layout
 

@@ -38,7 +38,8 @@ docs/                      the operational runbooks (see below)
 
 | Document | Use it when |
 | --- | --- |
-| `docs/BACKUP-AND-RECOVERY.md` | taking, verifying or restoring a backup; the deletion guard |
+| `docs/DATA-SAFETY.md` | environments, deletion safeguards, and the honest status of what is **not** set up |
+| `docs/BACKUP-AND-RECOVERY.md` | taking, verifying or restoring a backup; the deletion guard and the recycle bin |
 | `docs/ROLLBACK.md` | a release went wrong (server, service worker, database, config) |
 | `docs/FREE-PLAN-LIMITS.md` | a quota, a pause, or the app "went read-only" |
 | `docs/MONITORING.md` | setting up alerts; what is measured and what is not |

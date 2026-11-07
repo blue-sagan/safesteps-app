@@ -51,6 +51,44 @@ Design notes that matter if you change the script:
 `backups/`, `*.jsonl`, `*.dump` and `*.sql.gz` are gitignored: a backup
 containing user data must never reach the repository.
 
+## 1a. The recycle bin: most deletions no longer need a restore
+
+Added 2026-11-07 (migration `20261107120000_deletion_safeguards.sql`). Before
+reaching for a backup bundle, check whether the record is simply in a user's bin:
+
+```sql
+select source_table, source_id, deleted_at, purge_after
+  from public.trash
+ where source_table = 'safety_reports' and source_id = '<uuid>';
+```
+
+A user can restore their own row from the app (30-day window). An operator can
+confirm what happened, and to whom, from the audit trail:
+
+```sql
+select actor_email, action, source_table, affected_count, affected_ids, created_at
+  from public.deletion_audit
+ order by created_at desc
+ limit 50;
+```
+
+This matters for recovery planning: most row-level loss is now a **restore**, not
+a database restore. That is cheaper, faster and carries no risk of reverting
+unrelated data.
+
+It does **not** reduce the need for backups. The bin lives in the same database,
+so it disappears with the database — including through the `ON DELETE CASCADE`
+from `auth.users` when an account is erased.
+
+Also useful as a bulk-deletion alert (brief section 3.5):
+
+```sql
+select count(*) as deletions_last_hour
+  from public.deletion_audit
+ where created_at > now() - interval '1 hour'
+   and affected_count >= 5;
+```
+
 ## 2. Testing that a backup actually restores
 
 **An untested backup is not a backup.** Run this after every backup you intend
