@@ -285,8 +285,16 @@ test('a missing migration degrades honestly when SQLITE_PATH is durable', async 
       screen: 'quiz',
       severity: 'medium',
     });
-    assert.equal(response.status, 201, 'a durable fallback may accept the report');
     const body = await response.json();
+    if (!require('../lib/db').isAvailable()) {
+      // Node 20: `node:sqlite` does not exist, so even a configured path has no
+      // store behind it. There is nowhere to keep the report, and the only
+      // honest reply is the one that says so.
+      assert.equal(response.status, 503, 'no store at all must not answer 201');
+      assert.equal(body.error, 'storage_unavailable');
+      return;
+    }
+    assert.equal(response.status, 201, 'a durable fallback may accept the report');
     assert.equal(body.status, 'recorded');
     assert.equal(body.degraded, true, 'the caller must still be told it came from the fallback');
     assert.equal(body.reference, null);

@@ -77,12 +77,26 @@ test('the helper never throws, whatever the environment looks like', () => {
   }
 });
 
-test('a write to the volatile store really does succeed, which is why this check is needed', () => {
-  // The premise of the whole fix. If this ever stops being true, the fallback
-  // cannot silently lose data and this check can be reconsidered.
+test('when the local store is available, a write to it still succeeds — success is not durability', () => {
+  // The premise of the whole fix: an insert into a volatile store returns no
+  // error, so "the write succeeded" can never be used as evidence that the data
+  // was kept.
+  //
+  // `node:sqlite` shipped in Node 22; the server's declared engine floor is
+  // Node 20, where the store is simply unavailable. Both runtimes are in the CI
+  // matrix, so this asserts whichever situation applies rather than assuming one.
   withPath(undefined, () => {
-    assert.equal(db.isAvailable(), true, 'the in-memory store is available');
-    assert.equal(db.isMemoryBacked(), true, '...and it is volatile');
+    if (!db.isAvailable()) {
+      // Node 20 floor: no local store at all. isMemoryBacked() is still correct
+      // because it answers from configuration alone, which is the point — the
+      // caller must be able to ask the question even when nothing works.
+      assert.equal(db.isMemoryBacked(), true,
+        'with no store available, the answer must still be "not durable"');
+      assert.throws(() => db.query('SELECT 1'), db.LocalStoreUnavailable,
+        'a missing runtime dependency must surface as LocalStoreUnavailable');
+      return;
+    }
+    assert.equal(db.isMemoryBacked(), true, 'the fallback store is volatile');
     assert.doesNotThrow(() => {
       db.query('CREATE TABLE IF NOT EXISTS durability_probe (id INTEGER PRIMARY KEY, v TEXT)');
       db.query('INSERT INTO durability_probe (v) VALUES (?)', ['written']);
