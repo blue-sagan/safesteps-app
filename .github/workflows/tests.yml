@@ -103,6 +103,13 @@ jobs:
         # Each one is a single style attribute away from coming back.
         run: node scripts/check-design.js
 
+      - name: Data safety (caps, typed confirmation, approval, audit, banner)
+        # The deletion-safeguard rules from the data-safety brief. Several of
+        # these checks CALL the enforcement code rather than grepping for it,
+        # because a grep for a comparison still passes when the comparison is
+        # disabled — which is how two of them first failed to bite.
+        run: node scripts/check-data-safety.js
+
       - name: Request budget (no dataset downloaded twice)
         # A duplicate GET is invisible in the UI — it just costs a phone on a
         # metered connection money. Runs the real loaders against a counting

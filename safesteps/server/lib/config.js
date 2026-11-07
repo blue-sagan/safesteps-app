@@ -130,8 +130,41 @@ if (!serverDataKey) {
   );
 }
 
+/**
+ * Which environment this process is.
+ *
+ * `NODE_ENV` alone is not enough: it says "not production" for both a developer
+ * laptop and a staging deployment that holds near-real data. The brief asks for
+ * a distinct visual banner in production and unique credentials per environment,
+ * and both need a name more specific than a boolean.
+ *
+ *   production  NODE_ENV=production  (or SAFESTEPS_ENV=production)
+ *   staging     SAFESTEPS_ENV=staging
+ *   development everything else
+ *
+ * A value that is set but unrecognised is treated as production, not as
+ * development. Guessing "development" for a typo would silently disable the
+ * production banner and the production credential checks, which is exactly the
+ * mistake this is meant to prevent.
+ */
+function resolveEnvironment() {
+  const declared = String(process.env.SAFESTEPS_ENV || '').trim().toLowerCase();
+  if (declared === 'production' || declared === 'staging' || declared === 'development') return declared;
+  if (declared) {
+    warnings.push(
+      `SAFESTEPS_ENV="${declared}" is not a known environment (production|staging|development). ` +
+        'Treating this process as production, because assuming development would hide the production banner.'
+    );
+    return 'production';
+  }
+  return isProduction ? 'production' : 'development';
+}
+
+const environment = resolveEnvironment();
+
 const config = {
   isProduction,
+  environment,
   port: Number(process.env.PORT || 8080),
   host: process.env.HOST || '0.0.0.0',
   publicOrigin: (process.env.PUBLIC_ORIGIN || '').replace(/\/+$/, ''),
@@ -170,6 +203,10 @@ const config = {
       // Still far too few to use as a message queue.
       bugreport: [20, 60 * 60 * 1000],
       upload: [30, 60 * 1000],
+      // Deleting records. Deliberately tight: a legitimate user tidies a handful
+      // of reports, they do not issue dozens of delete calls a minute. This also
+      // caps how fast a stolen session could churn through a user's history.
+      deletion: [20, 60 * 1000],
       global: [1200, 60 * 1000],
       // Analytics ingest. Generous enough for real use (events are batched, so a
       // session is a handful of requests) but low enough that it cannot be used
@@ -242,6 +279,64 @@ if (warnings.length) {
   for (const warning of warnings) console.warn(`  • ${warning}`);
   console.warn('');
 }
+
+/**
+ * Environment isolation checks.
+ *
+ * The brief asks for separate databases and unique credentials per environment.
+ * Those are provisioning decisions, and no amount of application code can create
+ * a second project — but code CAN refuse to start in the most dangerous
+ * misconfiguration: a production process wired to a development database, or
+ * two environments sharing a project ref.
+ *
+ * `SAFESTEPS_EXPECTED_PROJECT_REF` is the pin. When set, this process refuses to
+ * serve unless the configured SUPABASE_URL is that project. That turns "we
+ * deployed with last month's .env" from a silent data-mixing bug into a boot
+ * failure.
+ */
+function projectRefFromUrl(url) {
+  const match = String(url || '').match(/^https?:\/\/([a-z0-9]{20})\.supabase\.(co|in)/i);
+  return match ? match[1] : null;
+}
+
+const projectRef = projectRefFromUrl(supabaseUrl);
+const expectedRef = String(process.env.SAFESTEPS_EXPECTED_PROJECT_REF || '').trim();
+
+config.projectRef = projectRef;
+
+config.environmentIsolation = () => {
+  const problems = [];
+
+  // 1. A pinned project that does not match is a hard error, not a warning:
+  //    continuing would write production data into the wrong database.
+  if (expectedRef && supabaseUrl) {
+    if (!projectRef) {
+      problems.push(
+        `SAFESTEPS_EXPECTED_PROJECT_REF is set to ${expectedRef}, but SUPABASE_URL is not a recognised Supabase project URL.`
+      );
+    } else if (projectRef !== expectedRef) {
+      problems.push(
+        `This process is pinned to project ${expectedRef} but SUPABASE_URL points at ${projectRef}. ` +
+          'Refusing to mix environments.'
+      );
+    }
+  }
+
+  // 2. Production must not be pointed at a project it shares with a named
+  //    development run. There is no way to detect this from inside one process;
+  //    what can be detected is the common slip of running "production" locally.
+  if (environment === 'production') {
+    const host = String(process.env.PUBLIC_ORIGIN || '');
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/i.test(host)) {
+      problems.push(
+        'SAFESTEPS_ENV is production but PUBLIC_ORIGIN is a loopback address. ' +
+          'This looks like a production build pointed at a local database.'
+      );
+    }
+  }
+
+  return { ok: problems.length === 0, problems, projectRef, expectedRef: expectedRef || null };
+};
 
 config.capabilities = capabilities;
 

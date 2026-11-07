@@ -261,11 +261,26 @@ function createServer() {
 }
 
 if (require.main === module) {
+  // Refuse to start when this process is wired to the wrong database.
+  //
+  // This is a boot-time refusal rather than a warning on purpose. A production
+  // process pointed at a development project will happily serve traffic and
+  // quietly write production data into the wrong place; by the time anyone reads
+  // a warning it is already mixed. Failing to start is recoverable in seconds;
+  // un-mixing two databases is not.
+  const isolation = config.environmentIsolation();
+  if (!isolation.ok) {
+    console.error('\nSafeSteps refused to start: environment isolation check failed.');
+    for (const problem of isolation.problems) console.error(`  • ${problem}`);
+    console.error('');
+    process.exit(1);
+  }
+
   const server = createServer();
   server.listen(config.port, config.host, () => {
     console.info(
       `SafeSteps server listening on http://${config.host}:${config.port} ` +
-        `(${config.isProduction ? 'production' : 'development'} mode)`
+        `(${config.environment} mode${isolation.projectRef ? `, project ${isolation.projectRef}` : ''})`
     );
     console.info(`Challenge difficulty: ${bot.DIFFICULTY} leading hex zeros`);
     // Analytics flush loop. Unref'd, so it never keeps the process alive.

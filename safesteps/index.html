@@ -175,6 +175,96 @@
   }
   .data-status-btn:active{ background:var(--card2); }
 
+  /* ---------- PRODUCTION BANNER ----------
+     Brief section 1: "display a clear, distinct visual banner whenever you are
+     working inside the production environment."
+
+     It is deliberately the loudest permanent element in the app: a solid stripe
+     at the top of the viewport, above the header, that no theme can mute. The
+     cost of an extra bar is paid on purpose — someone who cannot tell staging
+     from production is one tap from deleting the wrong data. */
+  #envBanner{
+    display:none; position:sticky; top:0; z-index:120;
+    align-items:center; justify-content:center; gap:8px;
+    width:100%; padding:7px 12px;
+    background:var(--env-bg); color:var(--env-fg);
+    font-family:'Poppins',sans-serif; font-weight:800; font-size:11px;
+    letter-spacing:.14em; text-transform:uppercase;
+    text-align:center; line-height:1.3;
+  }
+  #envBanner.is-on{ display:flex; }
+  #envBanner .env-dot{
+    width:7px; height:7px; border-radius:50%; background:currentColor; flex:none;
+  }
+  /* Production: red. Staging: amber. Anything else: no banner at all, because a
+     warning that appears everywhere stops being a warning. */
+  body[data-env="production"]{ --env-bg:var(--red); --env-fg:#fff; }
+  body[data-env="staging"]{ --env-bg:var(--gold); --env-fg:#1A1200; }
+  /* The header sticks under the banner rather than over it, so the banner is
+     never covered mid-scroll. */
+  body[data-env="production"] .app-header,
+  body[data-env="staging"] .app-header{ top:var(--env-h, 0px); }
+
+  /* ---------- TRASH / BIN ---------- */
+  .bin-toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:10px; font-size:12px; color:var(--text-dim);
+  }
+  .bin-select-all{
+    display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim);
+    background:none; border:none; font:inherit; font-size:12px; cursor:pointer; padding:4px 0;
+  }
+  .bin-row{
+    display:flex; align-items:flex-start; gap:10px;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--r-md);
+    padding:12px 14px; margin-bottom:8px;
+  }
+  .bin-row .bin-check{
+    width:20px; height:20px; flex:none; margin-top:1px; border-radius:var(--r-xs);
+    border:2px solid var(--border); background:transparent; cursor:pointer; padding:0;
+    display:flex; align-items:center; justify-content:center; color:transparent;
+  }
+  .bin-row.selected .bin-check{ background:var(--teal); border-color:var(--teal); color:#062f24; }
+  .bin-row .bin-main{ min-width:0; flex:1; }
+  .bin-row .bin-title{ font-size:13px; font-weight:700; margin-bottom:2px; }
+  .bin-row .bin-meta{ font-size:11px; color:var(--text-dim); line-height:1.5; }
+  .bin-actions{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 4px; }
+  .bin-btn{
+    flex:1 1 auto; min-width:120px; padding:12px 14px; border-radius:var(--r-md);
+    border:1px solid var(--border); background:var(--card2); color:var(--text);
+    font-family:'Poppins',sans-serif; font-weight:700; font-size:13px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  }
+  .bin-btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .bin-btn.danger{ background:var(--red); border-color:var(--red); color:#fff; }
+  .bin-note{
+    font-size:11.5px; line-height:1.6; color:var(--text-dim);
+    background:var(--card2); border-radius:var(--r-md); padding:12px 14px; margin-bottom:12px;
+  }
+  /* Impact preview: the number, before anything happens. */
+  .impact-box{
+    border:1px solid var(--border); border-radius:var(--r-md); padding:14px;
+    margin-bottom:12px; background:var(--card);
+  }
+  .impact-box .impact-n{
+    font-family:'Poppins',sans-serif; font-weight:800; font-size:26px; line-height:1.1;
+    color:var(--text); display:block;
+  }
+  .impact-box .impact-lbl{ font-size:12px; color:var(--text-dim); margin-top:2px; display:block; }
+  .impact-box.warn{ border-color:var(--red); }
+  .impact-box.warn .impact-n{ color:var(--red); }
+  .typed-confirm{
+    width:100%; padding:12px 14px; border-radius:var(--r-md); border:1px solid var(--border);
+    background:var(--card2); color:var(--text); font-family:'Inter',monospace; font-size:16px;
+    margin-bottom:10px;
+  }
+  .typed-confirm-label{ font-size:12px; color:var(--text-dim); line-height:1.6; margin-bottom:8px; }
+  .typed-confirm-label code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+    background:var(--card2); border:1px solid var(--border); border-radius:var(--r-xs);
+    padding:2px 6px; color:var(--text); white-space:nowrap;
+  }
+
   *{box-sizing:border-box;}
   /* Visible keyboard focus ring everywhere — including on elements that were
      click-only divs before being made keyboard-accessible via tabindex/role
@@ -999,6 +1089,14 @@
 <body data-theme="dark">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><g id="i-alert"><path d="M12 3.6 2.6 20h18.8L12 3.6Z"/><path d="M12 9.5v4.2"/><path d="M12 17.1h.01"/></g><g id="i-shield"><path d="M12 3 20 6v5.6c0 4.6-3.2 8-8 9.4-4.8-1.4-8-4.8-8-9.4V6l8-3Z"/></g><g id="i-map-pin"><path d="M12 21s7-5.3 7-11a7 7 0 1 0-14 0c0 5.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></g><g id="i-book"><path d="M4 4.5h6.5A2.5 2.5 0 0 1 13 7v13a2 2 0 0 0-2-2H4V4.5Z"/><path d="M20 4.5h-6.5A2.5 2.5 0 0 0 11 7v13a2 2 0 0 1 2-2h7V4.5Z"/></g><g id="i-map"><path d="M9 3.5 3.5 5.6v15L9 18.4l6 2.1 5.5-2.1v-15L15 5.6 9 3.5Z"/><path d="M9 3.5v14.9"/><path d="M15 5.6v14.9"/></g><g id="i-sliders"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></g><g id="i-grid"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></g><g id="i-siren"><path d="M12 3.2v2.4"/><path d="M7 20v-6a5 5 0 0 1 10 0v6"/><path d="M3.5 20h17"/><path d="M4.8 10.4 3 9"/><path d="M19.2 10.4 21 9"/></g><g id="i-check"><path d="M4.5 12.5 9.5 17.5 19.5 6.5"/></g><g id="i-x"><path d="M5.5 5.5l13 13"/><path d="M18.5 5.5l-13 13"/></g><g id="i-chevron-right"><path d="M9 5.5 16 12l-7 6.5"/></g><g id="i-chevron-down"><path d="M5.5 9 12 16l6.5-7"/></g><g id="i-search"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></g><g id="i-info"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.4"/><path d="M12 7.8h.01"/></g><g id="i-lock"><rect x="4.8" y="10.4" width="14.4" height="9.6" rx="2.2"/><path d="M8.2 10.4V7.8a3.8 3.8 0 0 1 7.6 0v2.6"/></g><g id="i-refresh"><path d="M20 11.5a8 8 0 1 1-2.4-5.2"/><path d="M20 4.2v5.4h-5.4"/></g><g id="i-camera"><path d="M4 8.5h3l1.6-2.3h6.8L17 8.5h3a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 18v-8A1.5 1.5 0 0 1 4 8.5Z"/><circle cx="12" cy="13.6" r="3.4"/></g><g id="i-mic"><rect x="9" y="2.8" width="6" height="10.6" rx="3"/><path d="M5.6 11.4a6.4 6.4 0 0 0 12.8 0"/><path d="M12 17.8v3.4"/></g><g id="i-qr"><rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><path d="M14 14h2.5v2.5H14z"/><path d="M20.5 14v2.5"/><path d="M14 20.5h2.5"/><path d="M20.5 20.5h.01"/></g><g id="i-download"><path d="M12 3.5v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 19.5h15"/></g><g id="i-share"><path d="M12 15.5V3.8"/><path d="M7.8 8 12 3.8 16.2 8"/><path d="M4.5 13.5v5.2a1.8 1.8 0 0 0 1.8 1.8h11.4a1.8 1.8 0 0 0 1.8-1.8v-5.2"/></g><g id="i-phone"><path d="M6.2 3.5h3l1.6 4-2 1.6a12 12 0 0 0 6.1 6.1l1.6-2 4 1.6v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.2 5.7a2 2 0 0 1 2-2.2Z"/></g><g id="i-wifi-off"><path d="M3.5 8.4a16 16 0 0 1 5-2.6"/><path d="M13.5 6.1a16 16 0 0 1 7 2.3"/><path d="M6.8 12.2a11 11 0 0 1 3-1.4"/><path d="M14.6 11.1a11 11 0 0 1 2.6 1.1"/><path d="M9.6 15.8a6 6 0 0 1 4.8 0"/><path d="M12 19.4h.01"/><path d="M3 3l18 18"/></g><g id="i-clock"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.2V12l3.4 2"/></g><g id="i-user"><circle cx="12" cy="8.4" r="3.9"/><path d="M4.8 20.2a7.4 7.4 0 0 1 14.4 0"/></g><g id="i-users"><circle cx="9" cy="8.4" r="3.5"/><path d="M2.8 20a6.4 6.4 0 0 1 12.4 0"/><path d="M16.2 4.6a3.6 3.6 0 0 1 0 7"/><path d="M18 20a6.6 6.6 0 0 0-1.6-4.4"/></g><g id="i-heart"><path d="M12 20.2 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8A4.7 4.7 0 0 1 19.4 13L12 20.2Z"/></g><g id="i-star"><path d="m12 3.6 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.6l-5.4 2.9 1-6.1L3.2 10l6.1-.9L12 3.6Z"/></g><g id="i-cloud"><path d="M7.4 18.5h9.9a3.9 3.9 0 0 0 .5-7.8 5.6 5.6 0 0 0-10.7 1.3 3.4 3.4 0 0 0 .3 6.5Z"/></g><g id="i-sun"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2"/><path d="M12 19.2v2.2"/><path d="M2.6 12h2.2"/><path d="M19.2 12h2.2"/><path d="M5.4 5.4 7 7"/><path d="M17 17l1.6 1.6"/><path d="M18.6 5.4 17 7"/><path d="M7 17l-1.6 1.6"/></g><g id="i-cloud-rain"><path d="M7.4 15.6h9.9a3.9 3.9 0 0 0 .5-7.8 5.6 5.6 0 0 0-10.7 1.3 3.4 3.4 0 0 0 .3 6.5Z"/><path d="M8.6 18.4l-.9 2"/><path d="M12 18.4l-.9 2"/><path d="M15.4 18.4l-.9 2"/></g><g id="i-wind"><path d="M3.5 8.4h11a3 3 0 1 0-3-3"/><path d="M3.5 15.6h13.4a3 3 0 1 1-3 3"/></g><g id="i-eye"><path d="M2.6 12S6 5.8 12 5.8 21.4 12 21.4 12 18 18.2 12 18.2 2.6 12 2.6 12Z"/><circle cx="12" cy="12" r="2.8"/></g><g id="i-droplet"><path d="M12 3.2c3.4 4 6 7 6 10.2a6 6 0 0 1-12 0c0-3.2 2.6-6.2 6-10.2Z"/></g><g id="i-activity"><path d="M3 12h4l2.6-6.4 4.8 12.8L17.4 12H21"/></g><g id="i-trending-up"><path d="M3.5 16.5 9.5 10.5l3.8 3.8 6.2-6.8"/><path d="M15.6 7.5h4.9v4.9"/></g><g id="i-target"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1"/></g><g id="i-award"><circle cx="12" cy="9.2" r="5.6"/><path d="M8.6 13.9 7.2 20.6l4.8-2.4 4.8 2.4-1.4-6.7"/></g><g id="i-compass"><circle cx="12" cy="12" r="8.6"/><path d="m15.6 8.4-2.2 5-5 2.2 2.2-5 5-2.2Z"/></g><g id="i-route"><circle cx="5.6" cy="18.4" r="2.6"/><circle cx="18.4" cy="5.6" r="2.6"/><path d="M8.2 18.4h5.2a3.4 3.4 0 0 0 0-6.8h-2.8a3.4 3.4 0 0 1 0-6.8h5.2"/></g><g id="i-navigation"><path d="m12 3.4 6.8 17-6.8-4.2-6.8 4.2 6.8-17Z"/></g><g id="i-message"><path d="M20.5 12a8 8 0 0 1-8 8 8.4 8.4 0 0 1-3.4-.7L4 20.5l1.2-4.1A8 8 0 1 1 20.5 12Z"/></g><g id="i-thumbs-up"><path d="M7.4 20.4V10.2l4-6.6a2 2 0 0 1 3.6 1.6l-1 3.8h4.6a2 2 0 0 1 1.9 2.6l-1.7 6.6a2.4 2.4 0 0 1-2.3 1.8H7.4Z"/><path d="M7.4 10.2H3.6v10.2h3.8V10.2Z"/></g><g id="i-plus"><path d="M12 4.8v14.4"/><path d="M4.8 12h14.4"/></g><g id="i-trash"><path d="M4.8 6.6h14.4"/><path d="M9.4 6.6V4.4h5.2v2.2"/><path d="M6.6 6.6 7.6 20h8.8l1-13.4"/></g><g id="i-edit"><path d="M16.4 3.8 20.2 7.6 8.6 19.2 4 20l.8-4.6L16.4 3.8Z"/></g><g id="i-play"><path d="M7.6 4.8 19.2 12 7.6 19.2V4.8Z"/></g><g id="i-pause"><path d="M8.4 4.8v14.4"/><path d="M15.6 4.8v14.4"/></g><g id="i-bell"><path d="M6.4 10.2a5.6 5.6 0 0 1 11.2 0c0 4 1.6 5.4 1.6 5.4H4.8s1.6-1.4 1.6-5.4Z"/><path d="M10.2 19.4a2 2 0 0 0 3.6 0"/></g><g id="i-home"><path d="M3.8 10.4 12 3.6l8.2 6.8V20H3.8v-9.6Z"/><path d="M9.6 20v-5.4h4.8V20"/></g><g id="i-bus"><rect x="4" y="3.6" width="16" height="12.8" rx="2.2"/><path d="M4 10.4h16"/><path d="M8 16.4v2.6"/><path d="M16 16.4v2.6"/><path d="M7.6 13.4h.01"/><path d="M16.4 13.4h.01"/></g><g id="i-car"><path d="M4.4 15.4v-2l1.8-4.4h11.6l1.8 4.4v2"/><path d="M3.8 15.4h16.4v3H3.8z"/><circle cx="7.4" cy="18.4" r="1.6"/><circle cx="16.6" cy="18.4" r="1.6"/></g><g id="i-bike"><circle cx="5.8" cy="17.4" r="3.4"/><circle cx="18.2" cy="17.4" r="3.4"/><path d="M8.8 17.4 12 7.4h-3"/><path d="M12 7.4h4l2.2 10"/><path d="M9.2 12.6h6.4"/></g><g id="i-graduation"><path d="M2.8 9.4 12 5.2l9.2 4.2-9.2 4.2L2.8 9.4Z"/><path d="M6.4 11.2v5a5.6 5.6 0 0 0 11.2 0v-5"/></g><g id="i-flame"><path d="M12 21a6.4 6.4 0 0 0 6.4-6.4c0-4.8-4.4-7.2-6.4-11.6-2 4.4-6.4 6.8-6.4 11.6A6.4 6.4 0 0 0 12 21Z"/><path d="M12 21a2.6 2.6 0 0 0 2.6-2.6c0-2-1.8-2.9-2.6-4.8-.8 1.9-2.6 2.8-2.6 4.8A2.6 2.6 0 0 0 12 21Z"/></g><g id="i-globe"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2"/><path d="M12 3.4a12 12 0 0 1 0 17.2 12 12 0 0 1 0-17.2Z"/></g><g id="i-file-text"><path d="M6 3.6h7.6L19 9v11.4H6V3.6Z"/><path d="M13.4 3.6V9H19"/><path d="M9 13h6"/><path d="M9 16.4h6"/></g><g id="i-bar-chart"><path d="M4 20.4V4.2"/><path d="M4 20.4h16.2"/><rect x="7" y="12.4" width="3" height="5"/><rect x="12.4" y="8.4" width="3" height="9"/><rect x="17.8" y="10.4" width="3" height="7"/></g><g id="i-calendar"><rect x="3.8" y="5.4" width="16.4" height="15" rx="2.2"/><path d="M3.8 10.2h16.4"/><path d="M8.4 3.2v4"/><path d="M15.6 3.2v4"/></g><g id="i-external"><path d="M13.6 4.4h6v6"/><path d="M19.6 4.4 11 13"/><path d="M18.4 14v4.8a1.6 1.6 0 0 1-1.6 1.6H5.2a1.6 1.6 0 0 1-1.6-1.6V7.2a1.6 1.6 0 0 1 1.6-1.6H10"/></g><g id="i-log-out"><path d="M9.4 4.4H5.6A1.6 1.6 0 0 0 4 6v12a1.6 1.6 0 0 0 1.6 1.6h3.8"/><path d="M14.6 8 19 12l-4.4 4"/><path d="M19 12H9.4"/></g><g id="i-cloud-upload"><path d="M7.4 16.4h9.9a3.9 3.9 0 0 0 .5-7.8 5.6 5.6 0 0 0-10.7 1.3 3.4 3.4 0 0 0 .3 6.5Z"/><path d="M12 20.4v-6"/><path d="M9.4 16.6 12 14l2.6 2.6"/></g><g id="i-volume"><path d="M4.4 9.4h3L12 5.6v12.8L7.4 14.6h-3V9.4Z"/><path d="M15.4 9a4.2 4.2 0 0 1 0 6"/><path d="M18 6.6a8 8 0 0 1 0 10.8"/></g></defs></svg>
 
+<!-- PRODUCTION BANNER (brief section 1). Hidden until /api/config says which
+     environment this is; never guessed from the URL, because the whole point is
+     to be right when someone is about to do something destructive. -->
+<div id="envBanner" role="status" aria-live="polite">
+  <span class="env-dot" aria-hidden="true"></span>
+  <span id="envBannerText">Production</span>
+</div>
+
 <!-- REFINED PROJECT 360° SHIELD SPLASH SCREEN -->
 <div id="splashScreen" aria-hidden="true">
   <div class="splash-flag-bar"></div>
@@ -1282,6 +1380,56 @@
           <button class="fa-more-btn" style="margin-top:10px; color:var(--red);" onclick="signOutSafeStepsAccount()">🚪 Sign Out of Account</button>
           <button class="fa-more-btn" style="margin-top:10px; color:var(--red); border-color:var(--red);" onclick="deleteSafeStepsAccount()">🗑️ Delete My Account &amp; Server Data</button>
           <p style="font-size:11.5px; color:var(--text-dim); margin:8px 0 0; line-height:1.5;">Deleting removes your account and everything SafeSteps stored on its server for you: reports, quiz results, family profile, vault and security log. It cannot be undone. Your progress saved on this device is not affected — see the <a href="./legal.html#your-data" style="color:var(--teal);">Privacy Policy</a>.</p>
+        </div>
+
+        <!-- RECYCLE BIN (brief section 2: trash folder + impact preview) -->
+        <div class="google-account-card" id="trashCard" style="display:none;">
+          <h3 style="font-size:15px; font-weight:800; margin:0 0 6px;">Recently deleted</h3>
+          <p class="bin-note" style="margin-top:0;">
+            Deleted reports stay here for <b>30 days</b>, then they are erased automatically.
+            Restoring puts a record back exactly as it was. Deleting from here is permanent.
+          </p>
+
+          <div id="trashEmpty" style="display:none; font-size:12.5px; color:var(--text-dim); padding:8px 0 4px;">
+            Nothing in your bin.
+          </div>
+
+          <div id="trashToolbar" class="bin-toolbar" style="display:none;">
+            <button class="bin-select-all" type="button" onclick="toggleSelectAllTrash()">
+              <svg class="ic" aria-hidden="true" style="width:14px;height:14px;"><use href="#i-check"/></svg>
+              <span id="trashSelectAllLabel">Select all</span>
+            </button>
+            <span id="trashSelectedCount">0 selected</span>
+          </div>
+
+          <div id="trashList"></div>
+
+          <!-- Impact preview: shown before any destructive action runs. -->
+          <div id="trashImpact" class="impact-box" style="display:none;">
+            <span class="impact-n" id="trashImpactCount">0</span>
+            <span class="impact-lbl" id="trashImpactLabel"></span>
+          </div>
+
+          <div id="trashTypedWrap" style="display:none;">
+            <div class="typed-confirm-label">
+              Type <code id="trashPhraseText"></code> to confirm. This cannot be undone.
+            </div>
+            <input class="typed-confirm" id="trashPhraseInput" type="text"
+                   autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                   placeholder="Type the phrase exactly"
+                   oninput="updateTrashButtons()">
+          </div>
+
+          <div class="bin-actions">
+            <button class="bin-btn" id="trashRestoreBtn" type="button" disabled onclick="restoreSelectedTrash()">
+              <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restore
+            </button>
+            <button class="bin-btn danger" id="trashPurgeBtn" type="button" disabled onclick="purgeSelectedTrash()">
+              <svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg> Delete forever
+            </button>
+          </div>
+
+          <p id="trashStatus" style="font-size:11.5px; color:var(--text-dim); margin:6px 0 0; line-height:1.5;"></p>
         </div>
 
         <!-- PRIVACY PREFERENCES CARD -->
@@ -11637,6 +11785,9 @@ function renderAccountPage(){
     dashboardView.style.display = "none";
   }
   updateHeaderAccountBadge();
+  // Load the bin when a signed-in user is on this page. It hides itself for a
+  // guest, because trash rows are owned by an account and a guest has none.
+  loadTrash();
 }
 
 function updateHeaderAccountBadge(){
@@ -11780,6 +11931,15 @@ let serverCapabilities = null;
 async function refreshServerCapabilities(){
   try{
     serverCapabilities = await SS.session.capabilities();
+    // The same round-trip carries the environment name and the delete limits, so
+    // there is one source of truth and no second request.
+    try{
+      var cfg = await SS.session.config();
+      if(cfg){
+        applyEnvironmentBanner(cfg.environment);
+        if(cfg.deletion) trashState.settings = cfg.deletion;
+      }
+    }catch(configError){ /* capabilities still work; banner stays hidden */ }
   }catch(e){
     // Distinguish "the server says accounts are off" from "we could not reach
     // the server". Both are non-fatal; only the former hides the forms.
@@ -11788,6 +11948,341 @@ async function refreshServerCapabilities(){
   }
   renderServerCapabilityNotice();
   return serverCapabilities;
+}
+
+/* ---------------- ENVIRONMENT BANNER ---------------- */
+/**
+ * Show which environment this is, from the server's own answer.
+ *
+ * The brief asks for a distinct banner in production. Two decisions matter:
+ *
+ *   1. The value comes from the server (/api/config), never from the URL or a
+ *      build flag the browser could be lied to about. A staging deployment that
+ *      forgets its banner must not be able to look like production either.
+ *   2. If the server cannot be reached, NO banner is shown and the console says
+ *      so. Guessing "production" would train people to ignore a red bar that
+ *      appears on every offline load; guessing "development" is worse. Silence
+ *      plus a log entry is the only honest option, and /healthz carries the
+ *      authoritative answer for an operator.
+ */
+function applyEnvironmentBanner(environment){
+  var banner = document.getElementById("envBanner");
+  var text = document.getElementById("envBannerText");
+  if(!banner || !text) return;
+
+  var env = String(environment || "").toLowerCase();
+  if(env === "production"){
+    document.body.setAttribute("data-env", "production");
+    text.textContent = "Production — real data, changes are permanent";
+  }else if(env === "staging"){
+    document.body.setAttribute("data-env", "staging");
+    text.textContent = "Staging — test data only";
+  }else{
+    // development, unknown, or unreachable: no banner.
+    document.body.removeAttribute("data-env");
+    banner.classList.remove("is-on");
+    return;
+  }
+  banner.classList.add("is-on");
+  // Measure it, so the sticky header sits below rather than under the banner.
+  syncEnvBannerHeight();
+  watchEnvBannerHeight();
+}
+
+/**
+ * Keep --env-h honest after the banner appears.
+ *
+ * Measuring once is not enough: the banner uses Poppins, which may load after
+ * this runs, and the text can wrap to two lines on a narrow phone. Either would
+ * leave the header overlapping the banner — the one piece of this UI whose whole
+ * job is to be visible. Re-measure when fonts settle, on resize, and on
+ * orientation change.
+ */
+var envBannerWatched = false;
+function watchEnvBannerHeight(){
+  if(envBannerWatched) return;
+  envBannerWatched = true;
+  var re = function(){ syncEnvBannerHeight(); };
+  window.addEventListener("resize", re);
+  window.addEventListener("orientationchange", re);
+  if(document.fonts && document.fonts.ready && typeof document.fonts.ready.then === "function"){
+    document.fonts.ready.then(re).catch(function(){});
+  }
+  // One delayed pass covers the case where the font is already cached but the
+  // layout has not settled on the first frame.
+  setTimeout(re, 350);
+}
+
+function syncEnvBannerHeight(){
+  var banner = document.getElementById("envBanner");
+  if(!banner) return;
+  var h = banner.classList.contains("is-on") ? Math.round(banner.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty("--env-h", h + "px");
+}
+
+/* ---------------- RECYCLE BIN ---------------- */
+
+/**
+ * Client side of the bin. The server owns every rule here — the cap, the phrase,
+ * the approval gate — and this code does not try to second-guess them. What it
+ * does do is show the impact BEFORE the action, so nobody taps a button whose
+ * effect they have to imagine.
+ */
+var trashState = { items: [], selected: {}, loaded: false, busy: false, settings: null };
+
+function trashSettings(){
+  return trashState.settings || { maxPerRequest: 10, typedConfirmationThreshold: 3 };
+}
+
+function escapeAttr(value){
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function formatTrashAge(iso){
+  var t = Date.parse(iso);
+  if(isNaN(t)) return "deleted recently";
+  var mins = Math.floor((Date.now() - t) / 60000);
+  if(mins < 1) return "deleted just now";
+  if(mins < 60) return "deleted " + mins + " min ago";
+  var hrs = Math.floor(mins / 60);
+  if(hrs < 24) return "deleted " + hrs + " hr ago";
+  var days = Math.floor(hrs / 24);
+  return "deleted " + days + (days === 1 ? " day" : " days") + " ago";
+}
+
+function formatExpiry(iso){
+  var t = Date.parse(iso);
+  if(isNaN(t)) return "";
+  var days = Math.ceil((t - Date.now()) / 86400000);
+  if(days <= 0) return "erased automatically";
+  return "erased in " + days + (days === 1 ? " day" : " days");
+}
+
+function trashLabelFor(item){
+  if(item.source_table === "integrity_reports") return "Integrity report";
+  return "Safety report";
+}
+
+async function loadTrash(){
+  var card = document.getElementById("trashCard");
+  if(!card) return;
+  // The bin only means anything for a signed-in user: trash rows are owned by an
+  // account, and a guest has none.
+  if(!state.userAccount){
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  try{
+    var data = await SS.api("/api/trash?limit=50");
+    trashState.items = Array.isArray(data && data.items) ? data.items : [];
+    trashState.loaded = true;
+    // Keep only selections that still exist.
+    var keep = {};
+    trashState.items.forEach(function(item){ if(trashState.selected[item.id]) keep[item.id] = true; });
+    trashState.selected = keep;
+  }catch(error){
+    trashState.items = [];
+    trashState.loaded = true;
+    setTrashStatus(
+      error && error.status === 401
+        ? "Sign in again to see your bin."
+        : "Could not load your bin. Check your connection and try again."
+    );
+  }
+  renderTrash();
+}
+
+function selectedTrashIds(){
+  return trashState.items.filter(function(i){ return trashState.selected[i.id]; }).map(function(i){ return i.id; });
+}
+
+function renderTrash(){
+  var list = document.getElementById("trashList");
+  var empty = document.getElementById("trashEmpty");
+  var toolbar = document.getElementById("trashToolbar");
+  if(!list || !empty || !toolbar) return;
+
+  var items = trashState.items;
+  if(items.length === 0){
+    list.innerHTML = "";
+    empty.style.display = "block";
+    toolbar.style.display = "none";
+    updateTrashImpact();
+    return;
+  }
+
+  empty.style.display = "none";
+  toolbar.style.display = "flex";
+
+  list.innerHTML = items.map(function(item){
+    var on = !!trashState.selected[item.id];
+    return '<div class="bin-row' + (on ? " selected" : "") + '" data-trash-id="' + escapeAttr(item.id) + '">' +
+      '<button class="bin-check" type="button" role="checkbox" aria-checked="' + (on ? "true" : "false") + '"' +
+        ' aria-label="Select this item" onclick="toggleTrashItem(\'' + escapeAttr(item.id) + '\')">' +
+        '<svg class="ic" aria-hidden="true" style="width:12px;height:12px;"><use href="#i-check"/></svg>' +
+      '</button>' +
+      '<div class="bin-main">' +
+        '<div class="bin-title">' + escapeHtml(trashLabelFor(item)) + '</div>' +
+        '<div class="bin-meta">' + escapeHtml(formatTrashAge(item.deleted_at)) +
+          (item.purge_after ? " · " + escapeHtml(formatExpiry(item.purge_after)) : "") +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join("");
+
+  document.getElementById("trashSelectAllLabel").textContent =
+    selectedTrashIds().length === items.length ? "Clear selection" : "Select all";
+  updateTrashImpact();
+}
+
+function toggleTrashItem(id){
+  if(trashState.selected[id]) delete trashState.selected[id];
+  else trashState.selected[id] = true;
+  renderTrash();
+}
+
+function toggleSelectAllTrash(){
+  var ids = trashState.items.map(function(i){ return i.id; });
+  var allSelected = ids.length > 0 && ids.every(function(id){ return trashState.selected[id]; });
+  trashState.selected = {};
+  if(!allSelected) ids.forEach(function(id){ trashState.selected[id] = true; });
+  renderTrash();
+}
+
+/**
+ * Draw the impact preview for the current selection.
+ *
+ * The count shown is the number of selected bin entries, which is exactly what a
+ * purge would destroy — there is no server round-trip needed for that. The
+ * phrase requirement comes from the server's own configuration, so the UI cannot
+ * accidentally be more lenient than the API.
+ */
+function updateTrashImpact(){
+  var ids = selectedTrashIds();
+  var n = ids.length;
+  var impact = document.getElementById("trashImpact");
+  var countEl = document.getElementById("trashImpactCount");
+  var labelEl = document.getElementById("trashImpactLabel");
+  var typedWrap = document.getElementById("trashTypedWrap");
+  var phraseEl = document.getElementById("trashPhraseText");
+  var countEl2 = document.getElementById("trashSelectedCount");
+
+  if(countEl2) countEl2.textContent = n + " selected";
+
+  if(n === 0){
+    if(impact) impact.style.display = "none";
+    if(typedWrap) typedWrap.style.display = "none";
+    updateTrashButtons();
+    return;
+  }
+
+  var settings = trashSettings();
+  var over = n > settings.maxPerRequest;
+
+  if(impact){
+    impact.style.display = "block";
+    impact.classList.toggle("warn", over);
+    countEl.textContent = String(n);
+    labelEl.textContent = over
+      ? "Too many at once — this deployment allows " + settings.maxPerRequest + " per action. Restore in smaller batches."
+      : (n === 1 ? "item will be affected" : "items will be affected") +
+        " — restoring is reversible, deleting forever is not";
+  }
+
+  // The phrase is only for the irreversible action, and only above the
+  // threshold the server enforces.
+  if(typedWrap && phraseEl){
+    if(n >= settings.typedConfirmationThreshold){
+      typedWrap.style.display = "block";
+      phraseEl.textContent = "delete " + n + (n === 1 ? " report" : " reports") + " forever";
+    }else{
+      typedWrap.style.display = "none";
+      var input = document.getElementById("trashPhraseInput");
+      if(input) input.value = "";
+    }
+  }
+
+  updateTrashButtons();
+}
+
+function updateTrashButtons(){
+  var ids = selectedTrashIds();
+  var n = ids.length;
+  var settings = trashSettings();
+  var over = n > settings.maxPerRequest;
+  var restoreBtn = document.getElementById("trashRestoreBtn");
+  var purgeBtn = document.getElementById("trashPurgeBtn");
+
+  if(restoreBtn) restoreBtn.disabled = trashState.busy || n === 0 || over;
+  if(purgeBtn) purgeBtn.disabled = trashState.busy || n === 0 || over;
+
+  // The typed phrase gates the button itself when it is required, so the user is
+  // not invited to tap something the server will refuse.
+  if(purgeBtn){
+    if(n >= settings.typedConfirmationThreshold){
+      var input = document.getElementById("trashPhraseInput");
+      var expected = "delete " + n + (n === 1 ? " report" : " reports") + " forever";
+      var typed = input ? String(input.value || "").trim().toLowerCase() : "";
+      if(typed !== expected) purgeBtn.disabled = true;
+    }
+  }
+}
+
+function setTrashStatus(message){
+  var el = document.getElementById("trashStatus");
+  if(el) el.textContent = message || "";
+}
+
+async function restoreSelectedTrash(){
+  var ids = selectedTrashIds();
+  if(ids.length === 0 || trashState.busy) return;
+  trashState.busy = true;
+  updateTrashButtons();
+  setTrashStatus("Restoring…");
+  try{
+    var data = await SS.api("/api/trash/restore", { method: "POST", body: { ids: ids } });
+    setTrashStatus((data && data.message) || "Restored.");
+    trashState.selected = {};
+    await loadTrash();
+  }catch(error){
+    setTrashStatus((error && error.message) || "Could not restore those items. Nothing was changed.");
+  }finally{
+    trashState.busy = false;
+    updateTrashButtons();
+  }
+}
+
+async function purgeSelectedTrash(){
+  var ids = selectedTrashIds();
+  if(ids.length === 0 || trashState.busy) return;
+  trashState.busy = true;
+  updateTrashButtons();
+  setTrashStatus("Deleting permanently…");
+
+  var body = { ids: ids };
+  var settings = trashSettings();
+  if(ids.length >= settings.typedConfirmationThreshold){
+    var input = document.getElementById("trashPhraseInput");
+    body.confirm = input ? String(input.value || "").trim() : "";
+  }
+
+  try{
+    var data = await SS.api("/api/trash/purge", { method: "POST", body: body });
+    setTrashStatus((data && data.message) || "Deleted permanently.");
+    trashState.selected = {};
+    var inputEl = document.getElementById("trashPhraseInput");
+    if(inputEl) inputEl.value = "";
+    await loadTrash();
+  }catch(error){
+    setTrashStatus((error && error.message) || "Could not delete those items. Nothing was changed.");
+  }finally{
+    trashState.busy = false;
+    updateTrashButtons();
+  }
 }
 
 function renderServerCapabilityNotice(){

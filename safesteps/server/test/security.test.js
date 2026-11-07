@@ -121,7 +121,13 @@ test('/api/config exposes only public values', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(Object.keys(body).sort(), [
     'capabilities',
+    // Which environment this is, so the UI can show the production banner. A
+    // production deployment is not a secret; hiding it is how someone deletes
+    // the wrong database.
+    'deletion',
+    'environment',
     'hsts',
+    'isProduction',
     'passwordMaxLength',
     'passwordMinLength',
     'supabasePublishableKey',
@@ -132,6 +138,19 @@ test('/api/config exposes only public values', async () => {
   // A service-role key must never be reachable here.
   assert.equal(/eyJhbGciOi/.test(JSON.stringify(body)), false);
   assert.equal(body.supabaseServiceRoleKey, undefined);
+
+  // The environment name is one of three known strings, and nothing else.
+  assert.ok(['production', 'staging', 'development'].includes(body.environment));
+  assert.equal(typeof body.isProduction, 'boolean');
+
+  // The deletion limits are numbers and booleans. In particular the approval
+  // *token* must never appear: this endpoint is public.
+  assert.equal(typeof body.deletion.maxPerRequest, 'number');
+  assert.equal(typeof body.deletion.enabled, 'boolean');
+  assert.equal(body.deletion.token, undefined);
+  assert.equal(body.deletion.approvalToken, undefined);
+  // No project ref leaking through this payload either.
+  assert.equal(body.projectRef, undefined);
 });
 
 /* ------------------------------------------------------------------ */

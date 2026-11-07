@@ -16,6 +16,7 @@ const verification = require('./verification');
 const bot = require('./bot-protection');
 const rateLimit = require('./rate-limit');
 const analytics = require('./analytics');
+const deletion = require('./deletion');
 const session = require('./session');
 const mailer = require('./mailer');
 const {
@@ -142,6 +143,18 @@ async function handleConfig(req, res) {
     passwordMinLength: v.PASSWORD_MIN,
     passwordMaxLength: v.PASSWORD_MAX,
     hsts: config.isProduction,
+    // Which environment this is. The UI shows a production banner from this, so
+    // it must be public. It discloses nothing: a production deployment is not a
+    // secret, and hiding it is how someone deletes the wrong database.
+    environment: config.environment,
+    isProduction: config.environment === 'production',
+    // Limits the UI needs in order to prevent a request the server would refuse
+    // anyway. The server does not trust these; it re-checks everything.
+    deletion: {
+      maxPerRequest: deletion.MAX_ROWS_PER_REQUEST,
+      typedConfirmationThreshold: deletion.TYPED_CONFIRMATION_THRESHOLD,
+      ...deletion.approvalStatus(),
+    },
     // Public-safe capability flags so the UI can disable what cannot work
     // instead of letting the user hit an error they cannot fix.
     capabilities: config.capabilities(),
@@ -1207,6 +1220,341 @@ async function handleDeleteAccount(req, res) {
   sendJson(res, 200, { ok: true, message: 'Your account and all SafeSteps data have been deleted.' });
 }
 
+
+/* ------------------------ deletion safeguards --------------------- */
+
+/**
+ * Section 2 of the data-safety brief.
+ *
+ * Every handler below follows the same shape: authenticate → rate-limit →
+ * validate → ask the database what it would actually affect → (maybe) require a
+ * typed phrase → act → report the real number back.
+ *
+ * The ordering matters. The impact preview is computed by the database from the
+ * caller's own rows, so an attacker cannot inflate or deflate the count by
+ * claiming a selection: `matched` is what would actually be deleted.
+ */
+
+/** Shared preamble: signed in, address confirmed, within the delete budget. */
+async function requireDeleter(req) {
+  const user = await requireUser(req);
+  requireConfirmed(user);
+  await rateLimit.enforce('deletion', user.id);
+  return user;
+}
+
+/**
+ * POST /api/trash/preview
+ *   { table, ids: [uuid] } → { matched, requested, maxPerRequest, requiresPhrase,
+ *                              phrase, approval }
+ *
+ * Read-only. This is the "show the exact number of records before executing"
+ * requirement: the number comes from the database, not the client.
+ */
+async function handleTrashPreview(req, res) {
+  const user = await requireDeleter(req);
+  const body = await readJson(req);
+  v.only(body, ['table', 'ids']);
+
+  const table = deletion.assertDeletableTable(body.table);
+  const ids = deletion.normaliseIds(body.ids);
+
+  const result = await db.rest('rpc/api_trash_preview', {
+    method: 'POST',
+    accessToken: user.accessToken,
+    body: { p_table: table, p_ids: ids },
+  });
+  if (!result.ok) {
+    throw Object.assign(new Error('Could not check those records. Nothing was deleted.'), {
+      status: 502,
+      code: 'preview_failed',
+      expose: true,
+    });
+  }
+
+  const row = Array.isArray(result.body) ? result.body[0] || {} : result.body || {};
+  const matched = Number(row.matched) || 0;
+  const needsPhrase = deletion.phraseRequired(matched);
+
+  sendJson(res, 200, {
+    table,
+    requested: ids.length,
+    // What will actually happen. A request for records that no longer exist
+    // reports the smaller, true number rather than echoing the request.
+    matched,
+    maxPerRequest: deletion.MAX_ROWS_PER_REQUEST,
+    requiresPhrase: needsPhrase,
+    // The exact string the server will demand back. Stated here so the UI can
+    // show it and the user can type it; it is never accepted from the client.
+    phrase: needsPhrase ? deletion.confirmationPhrase(table, matched) : null,
+    approval: deletion.approvalStatus(),
+    approvalRequired: deletion.approvalRequired(matched),
+  });
+}
+
+/**
+ * POST /api/trash/delete
+ *   { table, ids, confirm?, approvalId?, approvalToken? }
+ *   → 200 { deleted, trashed } | 202 { pendingApproval } | 428 { phrase }
+ */
+async function handleTrashDelete(req, res) {
+  const user = await requireDeleter(req);
+  session.assertSameOrigin(req);
+  session.assertCsrf(req, parseCookies(req));
+
+  const body = await readJson(req);
+  v.only(body, ['table', 'ids', 'confirm', 'approvalId', 'approvalToken']);
+
+  const table = deletion.assertDeletableTable(body.table);
+  const ids = deletion.normaliseIds(body.ids);
+
+  // Resolve any pending approval FIRST. If the caller is completing an approved
+  // request, the ids come from the stored request rather than the body: an
+  // approval for five records must not be quietly usable for five different ones.
+  let approvedIds = ids;
+  let approved = false;
+  if (body.approvalId !== undefined) {
+    const pending = deletion.takePendingApproval(String(body.approvalId), user.id);
+    if (!pending) {
+      throw new deletion.DeletionError(
+        'That approval has expired or was already used. Start the delete again.',
+        { status: 410, code: 'approval_expired' }
+      );
+    }
+    if (!deletion.checkApprovalToken(body.approvalToken)) {
+      throw new deletion.DeletionError('That approval code is not correct.', {
+        status: 403,
+        code: 'approval_rejected',
+        fields: { approvalToken: 'Incorrect approval code.' },
+      });
+    }
+    approved = true;
+    approvedIds = pending.ids;
+  }
+
+  // Re-count server-side. Even with a client-supplied `confirm` phrase, the
+  // phrase is checked against what the database says now, not what the client
+  // says it selected.
+  const preview = await db.rest('rpc/api_trash_preview', {
+    method: 'POST',
+    accessToken: user.accessToken,
+    body: { p_table: table, p_ids: approvedIds },
+  });
+  if (!preview.ok) {
+    throw Object.assign(new Error('Could not check those records. Nothing was deleted.'), {
+      status: 502,
+      code: 'preview_failed',
+      expose: true,
+    });
+  }
+  const matched = Number((Array.isArray(preview.body) ? preview.body[0] || {} : {}).matched) || 0;
+
+  if (matched === 0) {
+    // Honest answer: nothing matched. 404 rather than a cheerful 200 that
+    // implies something was deleted.
+    sendJson(res, 404, {
+      error: 'nothing_matched',
+      message: 'None of those records exist any more. Nothing was deleted.',
+      deleted: 0,
+    });
+    return;
+  }
+
+  // Typed confirmation, when the impact warrants it.
+  deletion.assertPhrase(table, matched, body.confirm);
+
+  // Explicit approval, when configured. A first call parks the request; the
+  // caller must come back with the approval code.
+  if (!approved && deletion.approvalRequired(matched)) {
+    const pending = deletion.createPendingApproval({ userId: user.id, table, ids: approvedIds, matched });
+    sendJson(res, 202, {
+      status: 'approval_required',
+      message:
+        `This would delete ${matched} records. It is being held for explicit approval. ` +
+        'Send the approval code to proceed.',
+      pendingApproval: pending,
+    });
+    return;
+  }
+
+  const result = await db.rest('rpc/api_trash_soft_delete', {
+    method: 'POST',
+    accessToken: user.accessToken,
+    body: { p_table: table, p_ids: approvedIds },
+  });
+
+  if (!result.ok) {
+    // A database-side refusal here means the cap was hit or the table was
+    // rejected despite our own checks. Never report success for a failed delete.
+    const isCap = /refusing to delete/i.test(JSON.stringify(result.body || {}));
+    throw Object.assign(
+      new Error(
+        isCap
+          ? `You can delete at most ${deletion.MAX_ROWS_PER_REQUEST} records at a time. Nothing was deleted.`
+          : 'Could not delete those records. Nothing was deleted.'
+      ),
+      { status: isCap ? 413 : 502, code: isCap ? 'too_many_records' : 'delete_failed', expose: true }
+    );
+  }
+
+  const row = Array.isArray(result.body) ? result.body[0] || {} : result.body || {};
+  const deleted = Number(row.deleted) || 0;
+
+  sendJson(res, 200, {
+    deleted,
+    trashed: Number(row.trashed) || 0,
+    // Say plainly when fewer records were deleted than requested, rather than
+    // letting the caller assume everything went.
+    requested: approvedIds.length,
+    message:
+      deleted === 0
+        ? 'Nothing was deleted.'
+        : `${deleted} ${deleted === 1 ? 'record' : 'records'} moved to the bin. You can restore them for 30 days.`,
+  });
+}
+
+/**
+ * GET /api/trash?limit=20 — the caller's own bin.
+ * Reads through PostgREST as the user, so RLS keeps it to their own rows.
+ */
+async function handleTrashList(req, res, url) {
+  const user = await requireUser(req);
+  requireConfirmed(user);
+
+  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') || 20), 1), 50);
+  const result = await db.rest('trash', {
+    accessToken: user.accessToken,
+    searchParams: {
+      // The payload is deliberately NOT returned: the bin listing does not need
+      // the record's contents, and returning them would make this endpoint a way
+      // to read back data the user has already deleted.
+      select: 'id,source_table,source_id,deleted_at,restored_at,purge_after',
+      restored_at: 'is.null',
+      order: 'deleted_at.desc',
+      limit: String(limit),
+    },
+  });
+  if (!result.ok) throw Object.assign(new Error('Could not load your bin.'), { status: 502 });
+  sendJson(res, 200, {
+    items: result.body || [],
+    retentionDays: 30,
+    maxPerRequest: deletion.MAX_ROWS_PER_REQUEST,
+  });
+}
+
+/** POST /api/trash/restore  { ids: [trashRowId] } → { restored } */
+async function handleTrashRestore(req, res) {
+  const user = await requireDeleter(req);
+  session.assertSameOrigin(req);
+  session.assertCsrf(req, parseCookies(req));
+
+  const body = await readJson(req);
+  v.only(body, ['ids']);
+  const ids = deletion.normaliseIds(body.ids);
+
+  const result = await db.rest('rpc/api_trash_restore', {
+    method: 'POST',
+    accessToken: user.accessToken,
+    body: { p_trash_ids: ids },
+  });
+  if (!result.ok) {
+    throw Object.assign(new Error('Could not restore those records.'), {
+      status: 502,
+      code: 'restore_failed',
+      expose: true,
+    });
+  }
+  const row = Array.isArray(result.body) ? result.body[0] || {} : result.body || {};
+  const restored = Number(row.restored) || 0;
+  sendJson(res, 200, {
+    restored,
+    message: restored
+      ? `${restored} ${restored === 1 ? 'record' : 'records'} restored.`
+      : 'Nothing was restored — those items are no longer in your bin.',
+  });
+}
+
+/**
+ * POST /api/trash/purge  { ids, confirm? } → { purged }
+ *
+ * Permanently empties bin entries. Requires the typed phrase at the same
+ * threshold as a delete, because this is the one action in the app with no
+ * undo path at all.
+ */
+async function handleTrashPurge(req, res) {
+  const user = await requireDeleter(req);
+  session.assertSameOrigin(req);
+  session.assertCsrf(req, parseCookies(req));
+
+  const body = await readJson(req);
+  v.only(body, ['ids', 'confirm']);
+  const ids = deletion.normaliseIds(body.ids);
+
+  // The phrase describes what is actually in the bin among these ids.
+  const bin = await db.rest('trash', {
+    accessToken: user.accessToken,
+    searchParams: { select: 'id', id: `in.(${ids.join(',')})`, restored_at: 'is.null' },
+  });
+  if (!bin.ok) throw Object.assign(new Error('Could not check your bin.'), { status: 502 });
+  const present = Array.isArray(bin.body) ? bin.body.length : 0;
+
+  if (present === 0) {
+    sendJson(res, 404, { error: 'nothing_matched', message: 'Those items are no longer in your bin.', purged: 0 });
+    return;
+  }
+
+  if (deletion.purgePhraseRequired(present)) {
+    const expected = `delete ${present} ${present === 1 ? 'report' : 'reports'} forever`;
+    if (typeof body.confirm !== 'string' || body.confirm.trim().toLowerCase() !== expected) {
+      throw new deletion.DeletionError(`Type exactly "${expected}" to empty these permanently.`, {
+        status: 428,
+        code: 'confirmation_required',
+        fields: { confirm: `Type "${expected}".` },
+      });
+    }
+  }
+
+  const result = await db.rest('rpc/api_trash_purge', {
+    method: 'POST',
+    accessToken: user.accessToken,
+    body: { p_trash_ids: ids },
+  });
+  if (!result.ok) {
+    throw Object.assign(new Error('Could not empty those items.'), {
+      status: 502,
+      code: 'purge_failed',
+      expose: true,
+    });
+  }
+  const row = Array.isArray(result.body) ? result.body[0] || {} : result.body || {};
+  const purged = Number(row.purged) || 0;
+  sendJson(res, 200, {
+    purged,
+    // No reassurance here. This is the irreversible one and says so.
+    message: purged
+      ? `${purged} ${purged === 1 ? 'item' : 'items'} permanently deleted. This cannot be undone.`
+      : 'Nothing was deleted.',
+  });
+}
+
+/** GET /api/deletion-audit?limit=20 — the caller's own deletion history. */
+async function handleDeletionAudit(req, res, url) {
+  const user = await requireUser(req);
+  requireConfirmed(user);
+
+  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') || 20), 1), 50);
+  const result = await db.rest('deletion_audit', {
+    accessToken: user.accessToken,
+    searchParams: {
+      select: 'id,action,source_table,affected_count,created_at',
+      order: 'created_at.desc',
+      limit: String(limit),
+    },
+  });
+  if (!result.ok) throw Object.assign(new Error('Could not load your deletion history.'), { status: 502 });
+  sendJson(res, 200, { entries: result.body || [] });
+}
+
 /* ---------------------------- analytics --------------------------- */
 
 /**
@@ -1303,6 +1651,13 @@ async function handle(req, res, url) {
     'POST /api/integrity/dispatch': handleIntegrityDispatch,
     'POST /api/uploads': handleUpload,
     'POST /api/account/delete': handleDeleteAccount,
+    // Deletion safeguards (brief section 2). Owner-scoped, capped, audited.
+    'POST /api/trash/preview': handleTrashPreview,
+    'POST /api/trash/delete': handleTrashDelete,
+    'GET /api/trash': handleTrashList,
+    'POST /api/trash/restore': handleTrashRestore,
+    'POST /api/trash/purge': handleTrashPurge,
+    'GET /api/deletion-audit': handleDeletionAudit,
     // Supabase Auth "Send Email Hook" target (signed, not session-authenticated).
     'POST /api/hooks/send-email': handleSendEmailHook,
   };
