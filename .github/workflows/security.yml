@@ -1,0 +1,60 @@
+name: Security
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  schedule:
+    # Weekly dependency scan even when nothing is pushed.
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit (secrets, dependencies, headers, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the secret scan sees every commit
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run security audit
+        run: ./scripts/security-audit.sh
+
+      - name: Upload npm audit report
+        if: always()
+        run: |
+          cd safesteps/server
+          npm audit --omit=dev --json > "$RUNNER_TEMP/npm-audit.json" || true
+          echo "--- summary ---"
+          node -e "const r=require('$RUNNER_TEMP/npm-audit.json');console.log(JSON.stringify(r.metadata&&r.metadata.vulnerabilities||{},null,2))"
+
+  headers:
+    name: Verify deployed security headers
+    runs-on: ubuntu-latest
+    needs: audit
+    if: github.event_name == 'workflow_dispatch' && vars.SAFESTEPS_URL != ''
+    steps:
+      - name: Curl the deployed app and assert headers
+        run: |
+          set -euo pipefail
+          BASE="${{ vars.SAFESTEPS_URL }}"
+          HEADERS="$(curl -sSI "$BASE/")"
+          echo "$HEADERS"
+          for h in content-security-policy x-content-type-options x-frame-options \
+                   referrer-policy permissions-policy cross-origin-opener-policy \
+                   strict-transport-security; do
+            echo "$HEADERS" | grep -qi "^$h:" || { echo "MISSING: $h"; exit 1; }
+          done
+          echo "$HEADERS" | grep -qi 'content-security-policy:.*nonce-' || { echo "CSP missing nonce"; exit 1; }
+          curl -sS "$BASE/server/server.js" -o /dev/null -w '%{http_code}\n' | grep -q 404 \
+            || { echo "server source is exposed"; exit 1; }
+          curl -sSI "$BASE/" | grep -qi 'strict-transport-security' \
+            || { echo "HSTS missing on the deployed origin"; exit 1; }

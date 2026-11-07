@@ -1,0 +1,143 @@
+name: Tests and layout
+
+# Section C: "test updates before deployment" and "test mobile compatibility".
+# Every push runs the server test suite and the layout audit on eight phone
+# sizes. A red run blocks the deploy; that is the whole point of the gate.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server tests (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the declared engine floor in safesteps/server/package.json.
+        # Testing only the newest runtime would let a floor-breaking change ship.
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Show the runtime
+        run: node --version && node -e "console.log('fetch:', typeof fetch, 'getSetCookie:', typeof new Headers().getSetCookie)"
+
+      - name: Run the test suite
+        working-directory: safesteps/server
+        # Not `node --test test/*.test.js`: on Node 20 the shell glob is expanded
+        # by the runner, and node --test needs the per-file reporter to name a
+        # failing file. Running per-file also stops one bad module from hiding
+        # the others' results.
+        run: |
+          set -o pipefail
+          fail=0
+          for f in test/*.test.js; do
+            echo "::group::$f"
+            if ! node --test "$f"; then
+              echo "::error file=$f::test file failed"
+              fail=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $fail
+      - name: Every module parses
+        working-directory: safesteps/server
+        run: |
+          for f in server.js lib/*.js; do node --check "$f"; done
+          echo "all modules parse"
+
+  client:
+    name: Client syntax and mobile layout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Inline scripts parse
+        run: |
+          node -e '
+            const fs = require("fs");
+            const html = fs.readFileSync("safesteps/index.html", "utf8");
+            const blocks = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+            if (!blocks.length) { console.error("no inline scripts found — has the file changed shape?"); process.exit(1); }
+            for (const [i, code] of blocks.entries()) {
+              try { new (require("vm").Script)(code, { filename: `inline-${i}.js` }); }
+              catch (e) { console.error(`inline script ${i} does not parse: ${e.message}`); process.exit(1); }
+            }
+            console.log(`${blocks.length} inline script block(s) parse`);
+          '
+
+      - name: Install the layout engine
+        # happy-dom is a dev-only dependency, never shipped to the browser.
+        run: npm install --no-save happy-dom
+
+      - name: No broken links
+        # Local file refs, in-page anchors, every showPage() target, every screen
+        # reachable, tel:/mailto: well-formed, no placeholder href="#".
+        run: node scripts/check-links.js
+
+      - name: Mobile layout audit (8 phone sizes x every page)
+        # Audits index.html, legal.html and 404.html — "every page is mobile
+        # optimised" is only true if it is checked on every page.
+        run: node scripts/check-mobile.js
+
+      - name: User states (all ten, executed not grepped)
+        # renderNoResults was defined, reviewed and never called. A state that is
+        # defined but unreachable is not implemented, so this runs the page's own
+        # helpers in a DOM and asserts on the rendered markup and ARIA roles.
+        run: node scripts/check-states.js
+
+      - name: Design rules (no gradients, glows, emoji icons or loops)
+        # The seven rules from the design brief, asserted rather than promised.
+        # Each one is a single style attribute away from coming back.
+        run: node scripts/check-design.js
+
+      - name: Data safety (caps, typed confirmation, approval, audit, banner)
+        # The deletion-safeguard rules from the data-safety brief. Several of
+        # these checks CALL the enforcement code rather than grepping for it,
+        # because a grep for a comparison still passes when the comparison is
+        # disabled — which is how two of them first failed to bite.
+        run: node scripts/check-data-safety.js
+
+      - name: Request budget (no dataset downloaded twice)
+        # A duplicate GET is invisible in the UI — it just costs a phone on a
+        # metered connection money. Runs the real loaders against a counting
+        # fetch stub.
+        run: node scripts/check-requests.js
+
+      - name: Performance budget (bytes on the wire, blocking resources)
+        # Measures what a phone actually downloads: brotli bytes for the shell,
+        # render-blocking stylesheets, CSS @import chains, image weights, and that
+        # the server still compresses. Fails on a regression against
+        # scripts/performance-budget.json.
+        run: node scripts/check-performance.js
+
+      - name: Release safety (cache busting, pre-cached assets)
+        # An app-shell change without a CACHE_VERSION bump means every existing
+        # user keeps the old shell, and later rollbacks are silently ignored.
+        run: |
+          git fetch --no-tags --depth=50 origin main || true
+          node scripts/check-release.js --since origin/main
+
+  secrets:
+    name: No credentials or unsafe patterns in the client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: ./scripts/security-audit.sh

@@ -1,0 +1,58 @@
+# Render blueprint — one-click deploy of the SafeSteps server.
+# Secrets are NOT stored here: set them in the Render dashboard
+# (Environment → Add Environment Variable) or as a secret file.
+services:
+  - type: web
+    name: safesteps
+    runtime: node
+    plan: starter
+    region: frankfurt
+    rootDir: safesteps/server
+    buildCommand: echo "no build step (zero dependencies)"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "true"
+      # Set these in the dashboard — never commit them.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: VERIFICATION_PEPPER
+        sync: false
+      - key: SERVER_DATA_KEY
+        sync: false
+      - key: PUBLIC_ORIGIN
+        sync: false
+      # EmailJS (server-side only — never reaches the browser)
+      - key: EMAILJS_SERVICE_ID
+        sync: false
+      - key: EMAILJS_TEMPLATE_ID
+        sync: false
+      - key: EMAILJS_PUBLIC_KEY
+        sync: false
+      - key: EMAILJS_PRIVATE_KEY
+        sync: false
+      - key: EMAILJS_TEMPLATE_VERIFICATION
+        sync: false
+      # Supabase Send Email Hook signing secret (lets GoTrue mail through us).
+      - key: SEND_EMAIL_HOOK_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false

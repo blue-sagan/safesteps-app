@@ -1,0 +1,17 @@
+{
+  "name": "safesteps-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SafeSteps trusted server: static hosting, security headers, server-side auth proxy, bot/rate-limit protection and the only place secrets live.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {}
+}

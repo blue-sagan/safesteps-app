@@ -1,6 +1,6 @@
 // SafeSteps Service Worker
 // Bump this on every deploy so old caches get cleared out automatically.
-const CACHE_VERSION = 'v42';
+const CACHE_VERSION = 'v60';
 const CACHE_NAME = `safesteps-${CACHE_VERSION}`;
 
 // Core app shell — everything needed to run fully offline, including the
@@ -8,7 +8,9 @@ const CACHE_NAME = `safesteps-${CACHE_VERSION}`;
 // on the very first offline load (not just after a page has been visited).
 const APP_SHELL = [
   './index.html',
+  './404.html',
   './manifest.json',
+  './assets/security.js',
   './assets/brand-logo.png',
   './assets/about-poster.jpg',
   './icons/icon-72.png',
@@ -21,6 +23,8 @@ const APP_SHELL = [
   './icons/icon-512.png',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon-180.png',
+  './favicon.ico',
   './data/accidents.json',
   './data/lessons.json',
   './data/quiz.json',
@@ -94,10 +98,23 @@ self.addEventListener('fetch', event => {
   // Only handle GET requests — POSTs / other methods just pass through.
   if (req.method !== 'GET') return;
 
+  const url = new URL(req.url);
+
+  // SECURITY: never cache the API, and never serve it from cache.
+  // /api/auth/me and /api/auth/refresh return private, cookie-authenticated
+  // data; caching them would let a later user of the same device read the
+  // previous user's profile out of the Cache Storage API.
+  if (url.origin === self.location.origin && (url.pathname === '/api' || url.pathname.startsWith('/api/'))) {
+    return;
+  }
+  // Same rule for anything outside our origin: let the browser handle it.
+  if (url.origin !== self.location.origin && !/\.(png|jpe?g|webp|css|js|woff2?)$/i.test(url.pathname)) {
+    return;
+  }
+
   const isNavigation = req.mode === 'navigate' ||
     (req.method === 'GET' && req.headers.get('accept')?.includes('text/html'));
 
-  const url = new URL(req.url);
   const isDynamicData = DYNAMIC_DATA_FILES.some(f => url.pathname.endsWith(f.replace('./', '/')));
 
   if (isNavigation) {
@@ -120,6 +137,16 @@ async function networkFirst(request) {
     if (cached) return cached;
     // Last resort: try to serve the app shell so the person still gets
     // *something* usable instead of a browser error page.
+    // A request for a real file (not an app route) that could not be fetched
+    // is a genuine dead link — show the branded 404, with a 404 status.
+    const wantsFile = /\.[a-z0-9]+$/i.test(new URL(request.url).pathname);
+    if (wantsFile) {
+      const notFound = await caches.match('./404.html');
+      if (notFound) return new Response(await notFound.text(), {
+        status: 404,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
     const shellFallback = await caches.match('./index.html');
     if (shellFallback) return shellFallback;
     return new Response(

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="That page could not be found. SafeSteps — offline road safety for Kenya.">
+<meta name="robots" content="noindex">
+<title>Page not found (404) — SafeSteps</title>
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<meta name="theme-color" content="#0A0F1C" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F4FBF6" media="(prefers-color-scheme: light)">
+<style>
+  :root{
+    --bg:#0A0F1C; --card:#121A2E; --card2:#1A2440; --text:#F2F3F7; --dim:#9BA3B8;
+    --border:#26314E; --teal:#00C853; --red:#F44336; --gold:#FFC107;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#F4FBF6; --card:#FFFFFF; --card2:#EEF6F0; --text:#181A20; --dim:#5F6B72;
+           --border:#DDEBE0; --teal:#00A844; --red:#E53935; --gold:#E5A100; }
+  }
+  *{box-sizing:border-box;}
+  /* A phone page must never scroll sideways. The long-safe defaults: no
+     horizontal overflow at all, images can never exceed the screen, and long
+     unbreakable strings (URLs, e-mail addresses) wrap instead of widening it. */
+  html,body{ overflow-x:clip; max-width:100%; }
+  img,svg,video,canvas,iframe{ max-width:100%; }
+  p,li,span,b,a,strong,em,small,h1,h2,h3,h4,h5,h6{ overflow-wrap:break-word; word-wrap:break-word; }
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Inter',sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    line-height:1.6;
+  }
+  .wrap{max-width:520px; width:100%; text-align:center;}
+  .code{
+    font-size:clamp(64px, 22vw, 104px); font-weight:800; line-height:1;
+    letter-spacing:-0.04em; margin:0;
+    background:linear-gradient(135deg, var(--teal), var(--gold));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  h1{font-size:clamp(19px,5vw,23px); margin:6px 0 10px;}
+  p{color:var(--dim); font-size:15.5px; margin:0 0 8px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:18px; padding:20px; margin:22px 0; text-align:left;}
+  .card b{display:block; font-size:14px; margin-bottom:10px; color:var(--text);}
+  ul{margin:0; padding-left:20px;}
+  li{font-size:14.5px; color:var(--dim); margin:7px 0;}
+  .actions{display:flex; flex-direction:column; gap:10px; margin-top:18px;}
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    min-height:50px; padding:0 20px; border-radius:13px; text-decoration:none;
+    font-weight:800; font-size:15px; border:1px solid transparent;
+  }
+  .primary{background:var(--teal); color:#04220f;}
+  .secondary{background:var(--card2); color:var(--text); border-color:var(--border);}
+  .emergency{
+    margin-top:20px; padding-top:18px; border-top:1px solid var(--border);
+    font-size:13.5px; color:var(--dim);
+  }
+  .emergency a{color:var(--red); font-weight:800; text-decoration:none; font-size:15px;}
+  .brand{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:20px;}
+  .brand img{width:40px; height:40px; border-radius:12px;}
+  .brand span{font-weight:800; font-size:17px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <img src="assets/brand-logo.png" alt="" width="40" height="40">
+    <span>SafeSteps</span>
+  </div>
+
+  <p class="code">404</p>
+  <h1>We couldn't find that page</h1>
+  <p>The link may be out of date, or the page may have moved.</p>
+
+  <div class="card">
+    <b>Everything below still works offline</b>
+    <ul>
+      <li>The <strong>Lessons</strong> and <strong>Quiz</strong> screens</li>
+      <li>The <strong>hazard map</strong> and <strong>route planner</strong></li>
+      <li>Your <strong>saved reports</strong> and checklists</li>
+    </ul>
+  </div>
+
+  <div class="actions">
+    <a class="btn primary" href="./index.html">← Back to SafeSteps</a>
+    <!-- Kept as a real link (not a JS redirect) so it works with JavaScript off. -->
+    <a class="btn secondary" href="./legal.html">Privacy Policy &amp; Terms</a>
+  </div>
+
+  <p class="emergency">
+    In an emergency, call
+    <a href="tel:112">112</a> or <a href="tel:999">999</a> directly.
+  </p>
+</div>
+</body>
+</html>

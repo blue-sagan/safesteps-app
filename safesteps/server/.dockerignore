@@ -1,0 +1,13 @@
+# Keep secrets, local state and tests out of the image.
+.env
+.env.*
+*.db
+*.db-wal
+*.db-shm
+test/
+node_modules/
+.git
+.gitignore
+*.log
+Dockerfile
+.dockerignore
