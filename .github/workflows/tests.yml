@@ -98,6 +98,11 @@ jobs:
         # helpers in a DOM and asserts on the rendered markup and ARIA roles.
         run: node scripts/check-states.js
 
+      - name: Design rules (no gradients, glows, emoji icons or loops)
+        # The seven rules from the design brief, asserted rather than promised.
+        # Each one is a single style attribute away from coming back.
+        run: node scripts/check-design.js
+
       - name: Request budget (no dataset downloaded twice)
         # A duplicate GET is invisible in the UI — it just costs a phone on a
         # metered connection money. Runs the real loaders against a counting

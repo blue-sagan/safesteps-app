@@ -21,6 +21,10 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
+// An explicit path argument points the whole check at another copy of the app
+// (used to prove the checks can fail); otherwise audit the real one.
+const explicitTarget = process.argv.slice(2).find((a) => !a.startsWith('--'));
+const TARGET = explicitTarget ? path.resolve(explicitTarget) : null;
 const ROOT = path.join(__dirname, '..', 'safesteps');
 const BUDGET_FILE = path.join(__dirname, 'performance-budget.json');
 const jsonOut = process.argv.includes('--json');
@@ -48,7 +52,7 @@ function measure(file) {
 // ---------------------------------------------------------------------------
 // 1. The app shell
 // ---------------------------------------------------------------------------
-const shell = measure('index.html');
+const shell = TARGET ? measure(path.relative(ROOT, TARGET)) : measure('index.html');
 if (!shell) {
   problem('index.html is missing — this check cannot run');
 }
@@ -56,7 +60,7 @@ if (!shell) {
 // ---------------------------------------------------------------------------
 // 2. What the browser must fetch before it can paint
 // ---------------------------------------------------------------------------
-const html = shell ? fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8') : '';
+const html = shell ? fs.readFileSync(TARGET || path.join(ROOT, 'index.html'), 'utf8') : '';
 
 // Strip <script>/<style> bodies and comments first. Without this, a comment like
 // `// rendered as <img src="...">, so ...` and a template literal inside the app
@@ -174,6 +178,71 @@ if (noAlt.length) {
 const markupForCss = html
   .replace(/<script[\s\S]*?<\/script>/gi, '')
   .replace(/<!--[\s\S]*?-->/g, '');
+// ---------------------------------------------------------------------------
+// Visual restraint: no decorative gradients, glows or looping animation.
+// ---------------------------------------------------------------------------
+// These were removed deliberately (flat surfaces, no coloured halos, nothing
+// animating forever). A checker keeps them from creeping back in one style
+// attribute at a time, which is exactly how they arrived.
+const styleBlocks = (markupForCss.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || []).join('\n');
+const cssOnly = styleBlocks.replace(/<style[^>]*>|<\/style>/gi, '');
+
+// The Kenyan flag stripes are insignia, not decoration, and the skeleton
+// shimmer is a loading affordance — both are allowed by name.
+const ALLOWED_GRADIENTS = [/var\(--ke-black\)/, /var\(--card2\)[^)]*25%/, /#00A344 0 33\.3%/];
+
+// A naive [^)]* stops at the first ")" — which is the one closing var(--card2),
+// not the gradient — so the match is truncated and every allowance test fails
+// against a half-string. Walk the parentheses instead.
+function gradientCalls(text) {
+  const out = [];
+  const re = /(?:linear|radial)-gradient\(/g;
+  let m;
+  while ((m = re.exec(text))) {
+    let depth = 1;
+    let i = m.index + m[0].length;
+    while (i < text.length && depth > 0) {
+      if (text[i] === '(') depth++;
+      else if (text[i] === ')') depth--;
+      i++;
+    }
+    out.push(text.slice(m.index, i));
+  }
+  return out;
+}
+const allGradients = gradientCalls(markupForCss);
+const strayGradients = allGradients.filter((g) => !ALLOWED_GRADIENTS.some((ok) => ok.test(g)));
+if (strayGradients.length) {
+  problem(
+    `${strayGradients.length} decorative gradient(s) — use a flat surface: ${strayGradients
+      .slice(0, 3)
+      .map((g) => g.slice(0, 40))
+      .join(' | ')}`
+  );
+}
+
+// A coloured box-shadow reads as a glow. Neutral black/ink depth is fine.
+const glowShadows = [...markupForCss.matchAll(/box-shadow:[^;}"']*rgba\(\s*(\d+),\s*(\d+),\s*(\d+)/g)].filter((m) => {
+  const [r, g, b] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const isNeutral = Math.abs(r - g) < 26 && Math.abs(g - b) < 26;
+  // A 1px `inset 0 0 0 1px` ring is a border drawn with shadow, and an all-zero
+  // spread ring is an invisible animation endpoint. Neither is a glow.
+  // "inset 0 0 0 1px" is a border drawn with shadow; "0 0 0 4px" is the focus
+  // ring shown mid-animation. Neither is decorative glow.
+  const isRing = /^box-shadow:\s*(?:inset\s+)?0\s+0\s+0\s+\d/.test(m[0]);
+  return !isNeutral && !isRing;
+});
+if (glowShadows.length) {
+  problem(`${glowShadows.length} coloured glow shadow(s) — use var(--shadow-*) for depth`);
+}
+
+const infinite = [...cssOnly.matchAll(/animation:[^;}]*\binfinite\b[^;}]*/g)].map((m) => m[0].trim());
+if (infinite.length) {
+  problem(`${infinite.length} animation(s) loop forever — reserve motion for interactions: ${infinite.slice(0, 2).join(' | ')}`);
+} else {
+  note('motion: nothing animates forever');
+}
+
 // Inline style attributes count too — most weight overrides in this app live there.
 const cssAndInline = (markupForCss.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || []).join('\n') + '\n' + markupForCss;
 const googleFontUrls = [...markupForCss.matchAll(/fonts\.googleapis\.com\/css2\?([^"']+)/g)].map((m) => m[1]);

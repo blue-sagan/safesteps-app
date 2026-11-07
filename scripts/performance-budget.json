@@ -1,7 +1,7 @@
 {
-  "shellBytes": 866598,
-  "shellBrotli": 201304,
-  "shellGzip": 226703,
+  "shellBytes": 892320,
+  "shellBrotli": 208950,
+  "shellGzip": 234934,
   "imageBytes": 239467,
   "largestImage": 123975,
   "blockingCss": 0,
